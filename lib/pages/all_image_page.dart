@@ -2,25 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
+import 'package:image_process/model/tree_node.dart';
 import 'package:image_process/user_session.dart';
 
-class TreeNode {
-  final int id;
-  final String title;
-  final List<TreeNode> children;
-
-  TreeNode({required this.id, required this.title, required this.children});
-
-  factory TreeNode.fromJson(Map<String, dynamic> json) {
-    return TreeNode(
-      id: json['id'],
-      title: json['title'],
-      children: List<TreeNode>.from(
-        json['children']?.map((x) => TreeNode.fromJson(x)) ?? [],
-      ),
-    );
-  }
-}
 
 class AllImagePage extends StatefulWidget {
   @override
@@ -53,6 +37,10 @@ class AllImagePageState extends State<AllImagePage> {
   int _limit = 30;
   bool _isImagesLoading = false;
   int _gridColumnCount = 4;
+
+  bool _isSelecting =false;
+  Set<ImageModel> _selectedImages={};
+  bool _allSelected=false;
 
   // 用于滚动加载
   bool _hasMore = true;
@@ -203,7 +191,8 @@ class AllImagePageState extends State<AllImagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('All Image')),
+      appBar: AppBar(title: Text('All Image'),actions: _buildAppBarActions()),
+      
       body: Column(
         children: [
           // 标题选择器
@@ -217,9 +206,77 @@ class AllImagePageState extends State<AllImagePage> {
                 ? Center(child: Text('No images found'))
                 : _buildImageGridWithLoader(),
           ),
+          // 底部选择工具栏
+          if (_isSelecting) _buildSelectionToolbar(),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildAppBarActions() {
+    return [
+      if (_isSelecting)
+        IconButton(
+          icon: Icon(Icons.cancel),
+          onPressed: _cancelSelection,
+        )
+      else
+        IconButton(
+          icon: Icon(Icons.select_all),
+          onPressed: _startSelectionMode,
+        ),
+    ];
+  }
+  void _startSelectionMode() {
+    setState(() {
+      _isSelecting = true;
+      _selectedImages.clear();
+      _allSelected = false;
+    });
+  }
+
+  void _cancelSelection() {
+    setState(() {
+      _isSelecting = false;
+      _selectedImages.clear();
+      _allSelected = false;
+    });
+  }
+  Widget _buildSelectionToolbar() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: Colors.grey[200],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('已选 ${_selectedImages.length} 项'),
+          Row(
+            children: [
+              TextButton(
+                onPressed: _toggleSelectAll,
+                child: Text(_allSelected ? '取消全选' : '全选'),
+              ),
+              SizedBox(width: 16),
+              IconButton(
+                icon: Icon(Icons.delete, color: Colors.red),
+                onPressed: ()=>{},
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+    void _toggleSelectAll() {
+    setState(() {
+      if (_allSelected) {
+        _selectedImages.clear();
+      } else {
+        _selectedImages = Set.from(_images.map((img) => img));
+      }
+      _allSelected = !_allSelected;
+    });
   }
 
   // 网格视图
@@ -444,45 +501,229 @@ class AllImagePageState extends State<AllImagePage> {
   }
 
   Widget _buildImageCard(ImageModel image) {
-    final imageUrl = '$baseUrl/img/${image.imgPath}'; // 构造完整URL
+    final imageUrl = '$baseUrl/img/${image.imgPath}';
+    final isSelected = _isSelecting && _selectedImages.contains(image);
+    final isDiscarded = image.state == 5;
 
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 图片显示
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-              child: _buildImageWithFallback(imageUrl),
+    return Stack(
+      children: [
+        Card(
+          elevation: isSelected ? 4 : 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: isDiscarded
+                  ? Colors.red
+                  : isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.transparent,
+              width: 2,
             ),
           ),
-
-          // 图片信息
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+          child: InkWell(
+            onTap: () {
+              if (_isSelecting) {
+                setState(() {
+                  if (_selectedImages.contains(image)) {
+                    _selectedImages.remove(image);
+                  } else {
+                    _selectedImages.add(image);
+                  }
+                  // 如果选中的数量等于所有图片数量，则全选
+                  if (_selectedImages.length == _images.length) {
+                    _allSelected = true;
+                  } else {
+                    _allSelected = false;
+                  }
+                });
+              } else {
+                _showImageDetail(image);
+              }
+            },
+            onLongPress: () {
+              if (!_isSelecting) {
+                _startSelectionMode();
+                setState(() {
+                  _selectedImages.add(image);
+                });
+              }
+            },
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  image.imgName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                // 图片显示
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+                    child: _buildImageWithFallback(imageUrl),
+                  ),
                 ),
-                Text(
-                  image.chinaElementName,
-                  style: TextStyle(color: Colors.grey),
+
+                // 图片信息
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        image.imgName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        image.chinaElementName,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+
+        // 废弃标签
+        if (isDiscarded)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '废弃',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+          ),
+
+        // 选择勾选标记
+        if (_isSelecting)
+          Positioned(
+            top: 8,
+            left: 8,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Theme.of(context).primaryColor
+                    : Colors.white.withOpacity(0.7),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.grey,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(Icons.check, color: Colors.white, size: 18)
+                  : null,
+            ),
+          ),
+      ],
     );
   }
+
+  void _showImageDetail(ImageModel image) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final imageUrl = '$baseUrl/img/${image.imgPath}';
+        return AlertDialog(
+          title: Text('图片详情'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(Icons.broken_image, size: 50),
+                      );
+                    },
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text('名称: ${image.imgName}', style: TextStyle(fontSize: 16)),
+                SizedBox(height: 8),
+                Text('中文元素: ${image.chinaElementName}',
+                    style: TextStyle(fontSize: 16)),
+                SizedBox(height: 8),
+                Text('状态: ${_getStateText(image.state)}',
+                    style: TextStyle(
+                        fontSize: 16,
+                        color: _getStateColor(image.state))),
+                SizedBox(height: 8),
+                Text('ID: ${image.imageID}', style: TextStyle(fontSize: 14)),
+                if (image.created_at != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      '创建时间: ${image.created_at}',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+   String _getStateText(int? state) {
+    switch (state) {
+      case 1:
+        return '未检查';
+      case 2:
+        return '正在检查';
+      case 3:
+        return '正在审核';
+      case 4:
+        return '审核通过';
+      case 5:
+        return '废弃';
+      default:
+        return '未知状态';
+    }
+  }
+
+  Color _getStateColor(int? state) {
+    switch (state) {
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.orange;
+      case 3:
+        return Colors.blue;
+      case 4:
+        return Colors.red;
+      case 5:
+        return Colors.redAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  
 
   // 图片显示组件（使用您实现的组件）
   Widget _buildImageWithFallback(String url) {

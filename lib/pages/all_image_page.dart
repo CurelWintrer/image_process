@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
+import 'package:image_process/model/image_state.dart';
 import 'package:image_process/model/tree_node.dart';
 import 'package:image_process/user_session.dart';
-
+import 'package:image_process/widget/image_detail.dart';
 
 class AllImagePage extends StatefulWidget {
   @override
@@ -38,9 +39,9 @@ class AllImagePageState extends State<AllImagePage> {
   bool _isImagesLoading = false;
   int _gridColumnCount = 4;
 
-  bool _isSelecting =false;
-  Set<ImageModel> _selectedImages={};
-  bool _allSelected=false;
+  bool _isSelecting = false;
+  Set<ImageModel> _selectedImages = {};
+  bool _allSelected = false;
 
   // 用于滚动加载
   bool _hasMore = true;
@@ -191,8 +192,8 @@ class AllImagePageState extends State<AllImagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('All Image'),actions: _buildAppBarActions()),
-      
+      appBar: AppBar(title: Text('All Image'), actions: _buildAppBarActions()),
+
       body: Column(
         children: [
           // 标题选择器
@@ -216,10 +217,7 @@ class AllImagePageState extends State<AllImagePage> {
   List<Widget> _buildAppBarActions() {
     return [
       if (_isSelecting)
-        IconButton(
-          icon: Icon(Icons.cancel),
-          onPressed: _cancelSelection,
-        )
+        IconButton(icon: Icon(Icons.cancel), onPressed: _cancelSelection)
       else
         IconButton(
           icon: Icon(Icons.select_all),
@@ -227,6 +225,7 @@ class AllImagePageState extends State<AllImagePage> {
         ),
     ];
   }
+
   void _startSelectionMode() {
     setState(() {
       _isSelecting = true;
@@ -242,6 +241,7 @@ class AllImagePageState extends State<AllImagePage> {
       _allSelected = false;
     });
   }
+
   Widget _buildSelectionToolbar() {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -259,7 +259,7 @@ class AllImagePageState extends State<AllImagePage> {
               SizedBox(width: 16),
               IconButton(
                 icon: Icon(Icons.delete, color: Colors.red),
-                onPressed: ()=>{},
+                onPressed: () => {},
               ),
             ],
           ),
@@ -268,7 +268,7 @@ class AllImagePageState extends State<AllImagePage> {
     );
   }
 
-    void _toggleSelectAll() {
+  void _toggleSelectAll() {
     setState(() {
       if (_allSelected) {
         _selectedImages.clear();
@@ -406,14 +406,14 @@ class AllImagePageState extends State<AllImagePage> {
           ),
           // 搜索按钮
           ElevatedButton(
-            onPressed:() => {
-                    _images.clear(),
-                    _totalItems = 0,
-                    _currentPage = 0,
-                    _hasMore=true,
-                    _isImagesLoading=false,
-                    _loadMoreImages(),
-                  },
+            onPressed: () => {
+              _images.clear(),
+              _totalItems = 0,
+              _currentPage = 0,
+              _hasMore = true,
+              _isImagesLoading = false,
+              _loadMoreImages(),
+            },
             child: Text('查询'),
           ),
           SizedBox(width: 20),
@@ -515,8 +515,8 @@ class AllImagePageState extends State<AllImagePage> {
               color: isDiscarded
                   ? Colors.red
                   : isSelected
-                      ? Theme.of(context).primaryColor
-                      : Colors.transparent,
+                  ? Theme.of(context).primaryColor
+                  : Colors.transparent,
               width: 2,
             ),
           ),
@@ -554,7 +554,9 @@ class AllImagePageState extends State<AllImagePage> {
                 // 图片显示
                 Expanded(
                   child: ClipRRect(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(6),
+                    ),
                     child: _buildImageWithFallback(imageUrl),
                   ),
                 ),
@@ -566,13 +568,13 @@ class AllImagePageState extends State<AllImagePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        image.imgName,
+                        image.chinaElementName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        image.chinaElementName,
+                        image.imageID.toString(),
                         style: TextStyle(color: Colors.grey),
                       ),
                     ],
@@ -614,9 +616,7 @@ class AllImagePageState extends State<AllImagePage> {
                     ? Theme.of(context).primaryColor
                     : Colors.white.withOpacity(0.7),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.grey,
-                ),
+                border: Border.all(color: Colors.grey),
               ),
               child: isSelected
                   ? Icon(Icons.check, color: Colors.white, size: 18)
@@ -630,100 +630,61 @@ class AllImagePageState extends State<AllImagePage> {
   void _showImageDetail(ImageModel image) {
     showDialog(
       context: context,
+      barrierDismissible: false,
+      useSafeArea: true,
       builder: (context) {
-        final imageUrl = '$baseUrl/img/${image.imgPath}';
-        return AlertDialog(
-          title: Text('图片详情'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Icon(Icons.broken_image, size: 50),
-                      );
-                    },
+        ImageModel currentImage = image;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            void handleImageUpdated(ImageModel updatedImage) {
+              setState(() => currentImage = updatedImage);
+
+              final index = _images.indexWhere(
+                (img) => img.imageID == updatedImage.imageID,
+              );
+              if (index != -1) {
+                // 更新父组件状态
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _images[index] = updatedImage);
+                  }
+                });
+              }
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        // 使用Flexible而非Expanded
+                        child: ImageDetail(
+                          key: ValueKey(currentImage.imageID), // 确保更新后的重建
+                          image: currentImage,
+                          onImageUpdated: handleImageUpdated,
+                           onClose: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 16),
-                Text('名称: ${image.imgName}', style: TextStyle(fontSize: 16)),
-                SizedBox(height: 8),
-                Text('中文元素: ${image.chinaElementName}',
-                    style: TextStyle(fontSize: 16)),
-                SizedBox(height: 8),
-                Text('状态: ${_getStateText(image.state)}',
-                    style: TextStyle(
-                        fontSize: 16,
-                        color: _getStateColor(image.state))),
-                SizedBox(height: 8),
-                Text('ID: ${image.imageID}', style: TextStyle(fontSize: 14)),
-                if (image.created_at != null)
-                  Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      '创建时间: ${image.created_at}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('关闭'),
-            ),
-          ],
+              ),
+            );
+          },
         );
       },
     );
   }
-
-   String _getStateText(int? state) {
-    switch (state) {
-      case 1:
-        return '未检查';
-      case 2:
-        return '正在检查';
-      case 3:
-        return '正在审核';
-      case 4:
-        return '审核通过';
-      case 5:
-        return '废弃';
-      default:
-        return '未知状态';
-    }
-  }
-
-  Color _getStateColor(int? state) {
-    switch (state) {
-      case 1:
-        return Colors.green;
-      case 2:
-        return Colors.orange;
-      case 3:
-        return Colors.blue;
-      case 4:
-        return Colors.red;
-      case 5:
-        return Colors.redAccent;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  
 
   // 图片显示组件（使用您实现的组件）
   Widget _buildImageWithFallback(String url) {

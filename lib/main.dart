@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_process/UserAccount/login_page.dart';
 import 'package:image_process/home_page.dart';
+import 'package:image_process/pages/all_image_page.dart';
 import 'package:image_process/tools/system_set.dart';
 import 'package:image_process/user_session.dart';
 import 'package:window_manager/window_manager.dart';
@@ -23,6 +24,7 @@ void main() async {
       await windowManager.focus();
     });
   }
+  await UserSession().loadFromPrefs();
   runApp(const MyApp());
 }
 
@@ -45,6 +47,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/login': (context) => LoginPage(),
         '/systemSet': (context) => SystemSet(),
+        '/allImage':(context)=>AllImagePage(),
       },
     );
   }

@@ -58,7 +58,7 @@ class _HomePageState extends State<HomePage>
       final email = userSession.email;
 
       // 添加日志输出，帮助调试角色问题
-      print('当前用户角色: $role');
+      print('token=${userSession.token}');
 
       // 更新用户信息
       setState(() {

@@ -75,9 +75,6 @@ class UserSession {
     await prefs.setInt('role', role); // 修改为setInt
     await prefs.setInt('userID', id);
 
-    // 添加日志输出
-    print('保存用户角色: $role');
-
     // 更新内存中的值
     token = token;
     name = name;

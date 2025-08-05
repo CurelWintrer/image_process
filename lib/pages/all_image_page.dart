@@ -627,7 +627,7 @@ class AllImagePageState extends State<AllImagePage> {
     );
   }
 
-  Future<void> handleImageUpload(ImageModel uploadImage) async {
+  Future<void> handleImageUpdated(ImageModel uploadImage) async {
     // 更新父组件的状态
     if (mounted) {
       setState(() {
@@ -640,9 +640,10 @@ class AllImagePageState extends State<AllImagePage> {
           _images.add(uploadImage); // 如果不存在则添加
         }
       });
-      print(_images[4].imgPath);
     }
   }
+
+
 
   void _showImageDetail(ImageModel image) {
     showDialog(
@@ -672,8 +673,9 @@ class AllImagePageState extends State<AllImagePage> {
                         child: ImageDetail(
                           key: ValueKey(currentImage.imageID), // 确保更新后的重建
                           image: currentImage,
-                          onUpload: handleImageUpload,
+                          onUpload: handleImageUpdated,
                           onClose: () => Navigator.pop(context),
+                          onAIGenerate: handleImageUpdated,
                         ),
                       ),
                     ],

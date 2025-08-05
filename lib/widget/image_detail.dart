@@ -1,12 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/image_state.dart';
+import 'package:image_process/tools/DownloadHelper.dart';
+import 'package:image_process/tools/GetCaption.dart';
 import 'package:image_process/tools/UploadHelper%20.dart';
 import 'package:image_process/user_session.dart';
 
 // 定义回调类型
 typedef ImageUpdateCallback = void Function(ImageModel updatedImage);
-typedef UploadCallback=void Function(ImageModel uploadImage);
+typedef UploadCallback = void Function(ImageModel uploadImage);
+typedef onAIGenerateCallback = void Function(ImageModel updatedImage);
+typedef onUpdateCaptionCallback = void Function(ImageModel updatedImage);
+typedef onUpdateStateCallback = void Function(ImageModel updatedImage);
 
 class ImageDetail extends StatefulWidget {
   final ImageModel image;
@@ -14,8 +22,9 @@ class ImageDetail extends StatefulWidget {
   final VoidCallback? onClose;
   final Future<void> Function()? onDownload; // 可选的下载回调
   final UploadCallback? onUpload; // 可用的上传回调
-  final Future<String> Function()? onAIGenerate; // AI生成描述回调
-  final Future<void> Function()? onUpdateState;
+  final onAIGenerateCallback? onAIGenerate; // AI生成描述回调
+  final onUpdateStateCallback? onUpdateState;
+  final onUpdateCaptionCallback? onUpdateCaption;
 
   const ImageDetail({
     super.key,
@@ -26,6 +35,7 @@ class ImageDetail extends StatefulWidget {
     this.onUpload,
     this.onAIGenerate,
     this.onUpdateState,
+    this.onUpdateCaption,
   });
 
   @override
@@ -64,34 +74,41 @@ class _ImageDetailState extends State<ImageDetail> {
     }
   }
 
-    // 统一状态更新方法
+  // 统一状态更新方法
   void _updateState(ImageModel updatedImage) {
     setState(() => currentImage = updatedImage);
     // 通知所有可能的更新回调
     if (widget.onImageUpdated != null) widget.onImageUpdated!(updatedImage);
     if (widget.onUpload != null) widget.onUpload!(updatedImage);
+    if (widget.onAIGenerate != null) widget.onAIGenerate!(updatedImage);
+    if (widget.onUpdateCaption != null) widget.onUpdateCaption!(updatedImage);
+    if (widget.onUpdateState != null) widget.onUpdateState!(updatedImage);
   }
 
   // 图片下载处理
   Future<void> _downloadImage() async {
-    if (widget.onDownload != null) {
-      await widget.onDownload!();
-    } else {
+    try {
+      await DownloadHelper.downloadImage(
+        context: context,
+        imgPath: currentImage.imgPath,
+        imgName: currentImage.imgName,
+      );
+    } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('下载功能已触发')));
+      ).showSnackBar(const SnackBar(content: Text('下载失败')));
     }
   }
 
   // 图片上传处理
   Future<void> _uploadImage() async {
-      try {
+    try {
       // 创建更新后的图片对象
       final response = await UploadHelper.pickAndUpload(
         context: context,
         imageID: currentImage.imageID,
       );
-           // 创建更新后的图片对象
+      // 创建更新后的图片对象
       final updatedImage = currentImage.copyWith(
         imgPath: response?['imgPath'],
         imgName: response?['fileName'],
@@ -99,12 +116,6 @@ class _ImageDetailState extends State<ImageDetail> {
         updated_at: DateTime.now().toIso8601String(),
       );
       _updateState(updatedImage);
-
-      _notifyUpdate();
-
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text('上传成功')),
-      // );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -133,15 +144,27 @@ class _ImageDetailState extends State<ImageDetail> {
   Future<void> _setImageState(int state) async {
     try {
       // 创建更新后的图片对象
-      setState(() {
-        currentImage = currentImage.copyWith(state: state);
-      });
-
-      _notifyUpdate();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('状态已更新为: ${ImageState.getStateText(state)}')),
+      final respose = await http.post(
+        Uri.parse('${UserSession().baseUrl}/api/image/update-states'),
+        headers: {
+          'Authorization': 'Bearer ${UserSession().token}',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          "states": [
+            {"imageID": currentImage.imageID, "state": state},
+          ],
+        }),
       );
+      print(respose.body);
+      if (respose.statusCode == 200) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('状态更新成功')));
+      }
+
+      final updatedImage = currentImage.copyWith(state: state);
+      _updateState(updatedImage);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -150,17 +173,20 @@ class _ImageDetailState extends State<ImageDetail> {
   }
 
   // 更新图片描述
-  Future<void> _updateCaption(String newCaption) async {
+  Future<void> _updateCaption() async {
     try {
-      setState(() {
-        currentImage = currentImage.copyWith(caption: newCaption);
-      });
-
-      _notifyUpdate();
-
+      ImageService.updateImageCaption(
+        imageID: currentImage.imageID,
+        newCaption: captionController.text,
+      );
+      final updatedImage = currentImage.copyWith(
+        caption: captionController.text,
+        updated_at: DateTime.now().toIso8601String(),
+      );
+      _updateState(updatedImage);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('描述已更新')));
+      ).showSnackBar(SnackBar(content: Text('caption更新成功')));
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -170,21 +196,68 @@ class _ImageDetailState extends State<ImageDetail> {
 
   // AI生成描述
   Future<void> _generateAICaption() async {
-    if (widget.onAIGenerate != null) {
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('正在更新图片描述...'),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('后台处理'),
+              ),
+            ],
+          ),
+        ),
+      );
       try {
-        final newCaption = await widget.onAIGenerate!();
+        // 1. 下载图片并转换为base64
+        final base64Image = await ImageService.downloadImageAndConvertToBase64(
+          '${UserSession().baseUrl}/img/${currentImage.imgPath}',
+        );
+        // 2. 调用AI模型生成新描述
+        final aiResponse = await ImageService.getImageCaptionFromAI(
+          base64Image,
+          currentImage,
+        );
+        final newCaption = aiResponse.content;
+        print(newCaption);
+
+        // 3. 更新数据库
+        await ImageService.updateImageCaption(
+          imageID: currentImage.imageID,
+          newCaption: newCaption,
+        );
         captionController.text = newCaption;
-        await _updateCaption(newCaption);
+        // 4. 更新本地状态
+        final updatedImage = currentImage.copyWith(
+          caption: newCaption,
+          updated_at: DateTime.now().toIso8601String(),
+        );
+        _updateState(updatedImage);
+        // 显示成功消息
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${currentImage.chinaElementName}描述更新成功!')),
+        );
       } catch (e) {
+        // 显示错误
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('AI生成失败: ${e.toString()}')));
+        ).showSnackBar(SnackBar(content: Text('更新失败: $e')));
       }
-    } else {
-      // 默认模拟实现
-      const generatedCaption = "这是AI生成的详细描述，包含图片的主要内容和特点。";
-      captionController.text = generatedCaption;
-      await _updateCaption(generatedCaption);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('AI更新失败')));
     }
   }
 
@@ -354,21 +427,6 @@ class _ImageDetailState extends State<ImageDetail> {
 
           const SizedBox(height: 16),
 
-          // 状态指示器
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: ImageState.getStateColor(currentImage.state ?? 0),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              ImageState.getStateText(currentImage.state ?? 0),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
           // 内容区域
           Expanded(
             child: LayoutBuilder(
@@ -421,7 +479,7 @@ class _ImageDetailState extends State<ImageDetail> {
             children: [
               _buildActionButton('下载', Icons.download, _downloadImage),
               _buildActionButton('上传', Icons.upload, _uploadImage),
-              _buildActionButton('MD5', Icons.fingerprint, _showMd5Info),
+              // _buildActionButton('MD5', Icons.fingerprint, _showMd5Info),
               Tooltip(
                 message: '废弃',
                 child: IconButton(
@@ -489,7 +547,7 @@ class _ImageDetailState extends State<ImageDetail> {
               ),
               const Spacer(),
               FilledButton.tonal(
-                onPressed: () => _updateCaption(captionController.text),
+                onPressed: () => _updateCaption(),
                 child: const Text('手动更新'),
               ),
               const SizedBox(width: 10),

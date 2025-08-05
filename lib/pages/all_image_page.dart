@@ -446,11 +446,11 @@ class AllImagePageState extends State<AllImagePage> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _buildStateOption(0, '未检查', context),
-              _buildStateOption(1, '正在检查', context),
-              _buildStateOption(3, '正在审核', context),
-              _buildStateOption(4, '审核通过', context),
-              _buildStateOption(5, '废弃', context),
+              _buildStateOption(ImageState.ToBeChecked, '未检查', context),
+              _buildStateOption(ImageState.Checking, '正在检查', context),
+              _buildStateOption(ImageState.UnderReview, '正在审核', context),
+              _buildStateOption(ImageState.Approved, '审核通过', context),
+              _buildStateOption(ImageState.Abandoned, '废弃', context),
             ],
           ),
         ),
@@ -955,7 +955,7 @@ class AllImagePageState extends State<AllImagePage> {
   Widget _buildImageCard(ImageModel image) {
     final imageUrl = '$baseUrl/img/${image.imgPath}';
     final isSelected = _isSelecting && _selectedImages.contains(image);
-    final isDiscarded = image.state == 5;
+    final isDiscarded = image.state == ImageState.Abandoned;
 
     return Stack(
       children: [
@@ -1119,7 +1119,7 @@ class AllImagePageState extends State<AllImagePage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Flexible(
-                        // 使用Flexible而非Expanded
+                        // 使用Flexible
                         child: ImageDetail(
                           key: ValueKey(currentImage.imageID), // 确保更新后的重建
                           image: currentImage,

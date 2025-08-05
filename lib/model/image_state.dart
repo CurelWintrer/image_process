@@ -1,12 +1,13 @@
-
-import 'dart:convert';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_process/user_session.dart';
+
 
 class ImageState {
+  static const ToBeChecked=0;   //未检查
+  static const Checking=1;      //正在检查
+  static const UnderReview=2;   //正在审核
+  static const Approved=3;      //审核通过
+  static const Abandoned=4;     //废弃
   static String getStateText(int? state) {
     switch (state) {
       case 0:
@@ -33,7 +34,7 @@ class ImageState {
       case 2:
         return Colors.blue;
       case 3:
-        return Colors.red;
+        return Colors.green;
       case 4:
         return Colors.redAccent;
       default:

@@ -178,6 +178,7 @@ class _ImageDetailState extends State<ImageDetail> {
       ImageService.updateImageCaption(
         imageID: currentImage.imageID,
         newCaption: captionController.text,
+        token: UserSession().token,
       );
       final updatedImage = currentImage.copyWith(
         caption: captionController.text,
@@ -236,6 +237,7 @@ class _ImageDetailState extends State<ImageDetail> {
         await ImageService.updateImageCaption(
           imageID: currentImage.imageID,
           newCaption: newCaption,
+          token: UserSession().token,
         );
         captionController.text = newCaption;
         // 4. 更新本地状态
@@ -329,37 +331,47 @@ class _ImageDetailState extends State<ImageDetail> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: Image.network(
-          fullImagePath,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                    : null,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[200],
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                  const SizedBox(height: 10),
-                  Text(
-                    '加载失败: ${error.toString()}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ],
-              ),
-            );
-          },
+        child: InteractiveViewer(
+          panEnabled: true, // 启用拖拽
+          scaleEnabled: true, // 启用缩放
+          minScale: 0.2, // 最小缩放比例
+          maxScale: 4.0, // 最大缩放比例
+          child: Image.network(
+            fullImagePath,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.broken_image,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '加载失败: ${error.toString()}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -484,7 +496,7 @@ class _ImageDetailState extends State<ImageDetail> {
                 message: '废弃',
                 child: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.white),
-                  onPressed: () => _setImageState(5),
+                  onPressed: () => _setImageState(ImageState.Abandoned),
                   style: IconButton.styleFrom(backgroundColor: Colors.red),
                 ),
               ),
@@ -492,7 +504,7 @@ class _ImageDetailState extends State<ImageDetail> {
                 message: '通过',
                 child: IconButton(
                   icon: const Icon(Icons.check, color: Colors.white),
-                  onPressed: () => _setImageState(4),
+                  onPressed: () => _setImageState(ImageState.Approved),
                   style: IconButton.styleFrom(backgroundColor: Colors.green),
                 ),
               ),

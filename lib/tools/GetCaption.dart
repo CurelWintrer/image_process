@@ -113,8 +113,6 @@ class ImageService {
         "max_tokens": 300,
       }),
     );
-
-    print(response.body);
     if (response.statusCode == 200) {
       return AiResponse.fromJson(json.decode(response.body));
     } else {
@@ -142,7 +140,7 @@ class ImageService {
       }),
     );
 
-    // print(response.body);
+    print(response.body);
 
     if (response.statusCode != 200) {
       throw Exception('数据库更新失败: ${response.statusCode}, ${response.body}');

@@ -343,7 +343,6 @@ class _ManagementPageState extends State<ManagementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('用户管理'), centerTitle: true),
       body: Column(
         children: [
           // 错误消息显示

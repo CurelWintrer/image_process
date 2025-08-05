@@ -106,12 +106,6 @@ class _GetRepetPageState extends State<GetRepetPage> {
     });
   }
 
-  // 辅助函数：显示提示消息
-  void _showSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: Duration(seconds: 2)),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,16 +122,6 @@ class _GetRepetPageState extends State<GetRepetPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('重复图片管理'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchDuplicateGroups,
-          ),
-        ],
-      ),
       body: Row(
         children: [
           // 左侧分组列表

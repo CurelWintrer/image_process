@@ -448,14 +448,14 @@ class _QualityInspectionDetailPageState
                               IconButton(
                                 icon: const Icon(Icons.check_circle),
                                 color: Colors.green,
-                                onPressed: () => _batchUpdateState(4),
+                                onPressed: () => _batchUpdateState(ImageState.Approved),
                                 tooltip: '批量通过',
                               ),
                             if (_isSelecting)
                               IconButton(
                                 icon: const Icon(Icons.delete),
                                 color: Colors.red,
-                                onPressed: () => _batchUpdateState(5),
+                                onPressed: () => _batchUpdateState(ImageState.Abandoned),
                                 tooltip: '批量废弃',
                               ),
                           ],

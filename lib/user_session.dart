@@ -12,7 +12,7 @@ class UserSession {
   String? email;
   int? role;
   int? id;
-  String baseUrl = 'http://10.1.5.103:3000';
+  String baseUrl = 'http://127.0.0.1:3000';
   String apiUrl='https://api.shubiaobiao.com/v1/chat/completions';
   String apiKey='sk-D6lEXIuoNQ1aK6OWf0WD5jwKkhabovIyfxkHYVKPRqveGdj4';
 

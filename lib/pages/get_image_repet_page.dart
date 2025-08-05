@@ -10,14 +10,16 @@ import 'package:image_process/model/tree_node.dart';
 import 'package:image_process/user_session.dart';
 import 'package:file_picker/file_picker.dart'; // 添加文件选择器
 
-class GetImageRepetPage extends StatefulWidget{
+class GetImageRepetPage extends StatefulWidget {
+  const GetImageRepetPage({super.key});
+
   @override
-  State<StatefulWidget> createState() =>_GeImageRepetPageState();
+  State<StatefulWidget> createState() => _GeImageRepetPageState();
 }
 
-class _GeImageRepetPageState extends State<GetImageRepetPage>{
-  final String _baseUrl=UserSession().baseUrl;
-  final String _token=UserSession().token??'';
+class _GeImageRepetPageState extends State<GetImageRepetPage> {
+  final String _baseUrl = UserSession().baseUrl;
+  final String _token = UserSession().token ?? '';
   List<TreeNode> _titleTree = [];
   String? _selectedLevel1;
   String? _selectedLevel2;
@@ -31,29 +33,29 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
   List<TreeNode> _level4Nodes = [];
   List<TreeNode> _level5Nodes = [];
 
-  List<ImageModel> _allImages=[];
+  List<ImageModel> _allImages = [];
   String? _selectedFolderPath;
-  bool _loading=false;
-  bool _processing=false;
+  bool _loading = false;
+  bool _processing = false;
   String? _error;
-  
+
   // 分页控制
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalImages = 0;
   final int _pageSize = 100;
-  
+
   // 重复图片分组
-  Map<int,List<ImageModel>> _groupedImages={};
+  Map<int, List<ImageModel>> _groupedImages = {};
   bool _showDuplicates = false;
-  
+
   // 下载进度
   double _downloadProgress = 0.0;
   int _totalDownloadCount = 0;
   int _currentDownloadCount = 0;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _loadTitleTree();
   }
@@ -97,7 +99,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       setState(() => _loading = false);
     }
   }
-  
+
   // 更新多级标题
   void _updateDropdownOptions() {
     // 第一级选择
@@ -138,14 +140,14 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
 
     setState(() {});
   }
-  
+
   // 循环分页查询所有图片
   Future<void> _fetchAllImages() async {
     if (_selectedLevel1 == null) {
       _showMessage('请至少选择一级标题');
       return;
     }
-    
+
     // 显示加载弹窗
     showDialog(
       context: context,
@@ -171,17 +173,20 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
         _totalPages = 1;
         _groupedImages.clear();
       });
-      
+
       int currentPage = 1;
       int totalImagesFetched = 0;
-      
+
       // 循环直到获取所有页面
       while (currentPage <= _totalPages) {
         await _fetchImagesByPage(currentPage);
-        
+
         // 更新下载进度
-        totalImagesFetched += min(_pageSize, _allImages.length - totalImagesFetched);
-        
+        totalImagesFetched += min(
+          _pageSize,
+          _allImages.length - totalImagesFetched,
+        );
+
         // 更新弹窗内容
         if (context.mounted) {
           Navigator.of(context, rootNavigator: true).pop();
@@ -201,7 +206,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
             ),
           );
         }
-        
+
         currentPage++;
       }
     } catch (e) {
@@ -212,7 +217,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       }
     }
   }
-  
+
   // 单页查询
   Future<void> _fetchImagesByPage(int page) async {
     try {
@@ -223,10 +228,14 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
         'page': page.toString(),
         'limit': _pageSize.toString(),
         if (_selectedLevel1!.isNotEmpty) 'First': _selectedLevel1,
-        if (_selectedLevel2 != null && _selectedLevel2!.isNotEmpty) 'Second': _selectedLevel2,
-        if (_selectedLevel3 != null && _selectedLevel3!.isNotEmpty) 'Third': _selectedLevel3,
-        if (_selectedLevel4 != null && _selectedLevel4!.isNotEmpty) 'Fourth': _selectedLevel4,
-        if (_selectedLevel5 != null && _selectedLevel5!.isNotEmpty) 'Fifth': _selectedLevel5,
+        if (_selectedLevel2 != null && _selectedLevel2!.isNotEmpty)
+          'Second': _selectedLevel2,
+        if (_selectedLevel3 != null && _selectedLevel3!.isNotEmpty)
+          'Third': _selectedLevel3,
+        if (_selectedLevel4 != null && _selectedLevel4!.isNotEmpty)
+          'Fourth': _selectedLevel4,
+        if (_selectedLevel5 != null && _selectedLevel5!.isNotEmpty)
+          'Fifth': _selectedLevel5,
       };
 
       final response = await http.get(
@@ -251,7 +260,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       throw Exception('查询图片异常: $e');
     }
   }
-  
+
   // 选择文件夹
   Future<void> _selectFolder() async {
     try {
@@ -264,26 +273,26 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       _showMessage('选择文件夹失败: $e');
     }
   }
-  
+
   // 下载所有图片
   Future<void> _downloadAllImages() async {
     if (_selectedFolderPath == null) {
       _showMessage('请先选择下载文件夹');
       return;
     }
-    
+
     if (_allImages.isEmpty) {
       _showMessage('没有图片可下载');
       return;
     }
-    
+
     setState(() {
       _processing = true;
       _downloadProgress = 0.0;
       _currentDownloadCount = 0;
       _totalDownloadCount = _allImages.length;
     });
-    
+
     // 显示下载进度弹窗
     showDialog(
       context: context,
@@ -300,37 +309,17 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
         ),
       ),
     );
-    
+
     try {
       for (int i = 0; i < _allImages.length; i++) {
         await _downloadImage(_allImages[i], _selectedFolderPath!);
-        
+
         setState(() {
           _currentDownloadCount = i + 1;
           _downloadProgress = (i + 1) / _totalDownloadCount;
         });
-        
-        // 更新弹窗进度
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('正在下载图片'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LinearProgressIndicator(value: _downloadProgress),
-                  const SizedBox(height: 16),
-                  Text('正在下载: ${i + 1}/$_totalDownloadCount'),
-                ],
-              ),
-            ),
-          );
-        }
       }
-      
+
       _showMessage('下载完成!');
     } catch (e) {
       _showMessage('下载失败: $e');
@@ -341,7 +330,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       }
     }
   }
-  
+
   // 下载单张图片
   Future<void> _downloadImage(ImageModel image, String folderPath) async {
     try {
@@ -350,7 +339,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
         Uri.parse(imageUrl),
         headers: {'Authorization': 'Bearer $_token'},
       );
-      
+
       if (response.statusCode == 200) {
         final filePath = path.join(folderPath, image.imgName);
         final file = File(filePath);
@@ -362,14 +351,14 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       throw Exception('下载失败: ${image.imgName} - $e');
     }
   }
-  
+
   // 执行Python脚本分析重复图片
   Future<void> _runPythonScript() async {
     if (_selectedFolderPath == null) {
       _showMessage('请先选择包含图片的文件夹');
       return;
     }
-    
+
     setState(() {
       _processing = true;
       _showDuplicates = true;
@@ -395,11 +384,11 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
     );
 
     try {
-      final script = path.join(Directory.current.path, 'processImage.py');
-      final result = await Process.run('python', [
-        script,
-        _selectedFolderPath!,
-      ]);
+      final script = path.join(
+        Directory.current.path,
+        'imageprocess\\processImage.exe',
+      );
+      final result = await Process.run(script, [_selectedFolderPath!]);
 
       if (result.exitCode != 0) {
         throw Exception(result.stderr);
@@ -450,9 +439,13 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       }
 
       // 根据文件名查询图片详情
-      final allImageNames = filteredGroups.expand((group) => group).map((path) {
-        return path.split(Platform.pathSeparator).last;
-      }).toSet().toList();
+      final allImageNames = filteredGroups
+          .expand((group) => group)
+          .map((path) {
+            return path.split(Platform.pathSeparator).last;
+          })
+          .toSet()
+          .toList();
 
       if (allImageNames.isEmpty) {
         _showMessage('没有需要查询的图片');
@@ -527,15 +520,17 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
                 Expanded(child: _buildTitleSelector()),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: _selectFolder, 
+                  onPressed: _selectFolder,
                   icon: const Icon(Icons.folder, size: 24),
                   tooltip: '选择文件夹',
                 ),
                 IconButton(
-                  onPressed: _downloadAllImages, 
+                  onPressed: _downloadAllImages,
                   icon: const Icon(Icons.download, size: 24),
                   tooltip: '下载所有图片',
-                  color: _selectedFolderPath != null ? Colors.blue : Colors.grey,
+                  color: _selectedFolderPath != null
+                      ? Colors.blue
+                      : Colors.grey,
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
@@ -558,9 +553,9 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
               ],
             ),
           ),
-          
+
           // 当前选择的文件夹
-          if (_selectedFolderPath != null) 
+          if (_selectedFolderPath != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -577,27 +572,22 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
                 ],
               ),
             ),
-          
+
           // 错误信息
           if (_error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Colors.red),
-              ),
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
             ),
-          
+
           // 加载指示器
           if (_loading) const LinearProgressIndicator(),
-          
+
           // 图片显示区域
-          Expanded(
-            child: _buildImageGrid(),
-          ),
-          
+          Expanded(child: _buildImageGrid()),
+
           // 分页控件
-          if (!_showDuplicates && _allImages.isNotEmpty) 
+          if (!_showDuplicates && _allImages.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
@@ -605,18 +595,22 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
-                    onPressed: _currentPage > 1 ? () {
-                      setState(() => _currentPage--);
-                      _fetchImagesByPage(_currentPage);
-                    } : null,
+                    onPressed: _currentPage > 1
+                        ? () {
+                            setState(() => _currentPage--);
+                            _fetchImagesByPage(_currentPage);
+                          }
+                        : null,
                   ),
                   Text('第 $_currentPage 页 / 共 $_totalPages 页'),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
-                    onPressed: _currentPage < _totalPages ? () {
-                      setState(() => _currentPage++);
-                      _fetchImagesByPage(_currentPage);
-                    } : null,
+                    onPressed: _currentPage < _totalPages
+                        ? () {
+                            setState(() => _currentPage++);
+                            _fetchImagesByPage(_currentPage);
+                          }
+                        : null,
                   ),
                 ],
               ),
@@ -727,7 +721,9 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
               value: null,
               child: Text(
                 enabled ? '选择 $hint' : '无可用选项',
-                style: TextStyle(color: enabled ? Colors.grey : Colors.grey[400]),
+                style: TextStyle(
+                  color: enabled ? Colors.grey : Colors.grey[400],
+                ),
               ),
             )
           else
@@ -748,7 +744,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
       if (_groupedImages.isEmpty) {
         return const Center(child: Text('没有重复图片'));
       }
-      
+
       // 分组显示重复图片
       return ListView.builder(
         itemCount: _groupedImages.length,
@@ -783,12 +779,11 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
           );
         },
       );
-    } 
-    else {
+    } else {
       if (_allImages.isEmpty) {
         return const Center(child: Text('请选择标题并点击查询按钮'));
       }
-      
+
       // 显示普通图片网格
       return GridView.builder(
         padding: const EdgeInsets.all(8),
@@ -822,9 +817,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
             fit: BoxFit.cover,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             },
             errorBuilder: (context, error, stackTrace) {
               return const Center(
@@ -832,7 +825,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
               );
             },
           ),
-          
+
           // 图片信息
           Positioned(
             left: 0,
@@ -868,10 +861,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage>{
   /// 显示消息提示
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message), 
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 }

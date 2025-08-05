@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:image_process/user_session.dart';
 
 class ReviewPage extends StatefulWidget {
+  const ReviewPage({super.key});
+
   @override
   State<StatefulWidget> createState() => ReviewPageState();
 }

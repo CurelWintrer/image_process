@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_process/navi/app_navigation_drawer.dart';
 import 'package:image_process/pages/export_image.dart';
 import 'package:image_process/pages/get_image_repet_page.dart';
+import 'package:image_process/pages/get_image_repet_sample_page.dart';
 import 'package:image_process/pages/get_repet_page.dart';
 import 'package:image_process/pages/management_page.dart';
 import 'package:image_process/pages/quality_inspection_list.dart';
@@ -20,8 +21,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin,AutomaticKeepAliveClientMixin{
+    // 自动保存状态
+  @override
+  bool get wantKeepAlive => true;
+
   int _selectedIndex = 0;
+
+    // 使用PageStorageKey为每个页面保存独立状态
+  final List<PageStorageKey> _pageKeys = [
+    PageStorageKey('page0'),
+    PageStorageKey('page1'),
+    PageStorageKey('page2'),
+    PageStorageKey('page3'),
+    PageStorageKey('page4'),
+    PageStorageKey('page5'),
+    PageStorageKey('page6')
+  ];
 
   // 用户信息
   Map<String, dynamic> _userInfo = {
@@ -84,22 +100,22 @@ class _HomePageState extends State<HomePage>
   }
 
   // 根据用户角色初始化页面列表
+   // 根据用户角色初始化页面列表
+   // 根据用户角色初始化页面列表
   void _initializePages(bool isAdmin) {
-    // 基础页面列表
+    // 创建页面实例 - 使用GlobalKey保存状态
     final basePages = [
-      {'title': '质检', 'page': QualityInspectionList()},
-      {'title': '总览', 'page': ReviewPage()},
-      {'title': '标题查重', 'page': GetRepetPage()},
-      {'title': '图片查重', 'page': GetImageRepetPage()},
-      {'title': '交付导出', 'page': ExportImage()},
+      {'title': '质检', 'page': QualityInspectionList(key: _pageKeys[0])},
+      {'title': '总览', 'page': ReviewPage(key: _pageKeys[1])},
+      {'title': '标题查重', 'page': GetRepetPage(key: _pageKeys[2])},
+      {'title': '图片查重Pro', 'page': GetImageRepetPage(key: _pageKeys[3])},
+      {'title':'图片查重','page':GetImageRepetSamplePage(key: _pageKeys[4],)},
+      {'title': '交付导出', 'page': ExportImage(key: _pageKeys[5])},
     ];
 
     // 只有管理员才添加管理页面
     if (isAdmin) {
-      basePages.insert(5, {'title': '账号管理', 'page': ManagementPage()});
-      print('已添加管理页面到菜单列表');
-    } else {
-      print('非管理员，不添加管理页面');
+      basePages.add({'title': '账号管理', 'page': ManagementPage(key: _pageKeys[6])});
     }
 
     // 更新页面和标题列表
@@ -252,8 +268,6 @@ class _HomePageState extends State<HomePage>
     Navigator.pushReplacementNamed(context, '/systemSet');
   }
 
-  // 删除第423-449行的重复代码
-  // 修复logout方法
   void logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
@@ -263,6 +277,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_isLoading) {
       return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -298,9 +313,9 @@ class _HomePageState extends State<HomePage>
                 ),
                 const Divider(height: 1),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _pages[_selectedIndex],
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: _pages,
                   ),
                 ),
               ],
@@ -323,8 +338,10 @@ class _HomePageState extends State<HomePage>
       case 3:
         return Icons.image;
       case 4:
-        return Icons.download;
+        return Icons.image_outlined;
       case 5:
+        return Icons.download;
+      case 6:
         return Icons.admin_panel_settings;
       default:
         return Icons.question_mark;

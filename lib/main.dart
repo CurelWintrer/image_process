@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_process/UserAccount/login_page.dart';
 import 'package:image_process/home_page.dart';
 import 'package:image_process/pages/all_image_page.dart';
+import 'package:image_process/pages/quality_inspection_detail_page.dart';
 import 'package:image_process/tools/system_set.dart';
 import 'package:image_process/user_session.dart';
 import 'package:window_manager/window_manager.dart';
@@ -48,6 +49,10 @@ class MyApp extends StatelessWidget {
         '/login': (context) => LoginPage(),
         '/systemSet': (context) => SystemSet(),
         '/allImage':(context)=>AllImagePage(),
+        '/quality-inspection/detail': (context) {
+          final taskId = ModalRoute.of(context)!.settings.arguments as int;
+          return QualityInspectionDetailPage(taskId: taskId);
+        },
       },
     );
   }

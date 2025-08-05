@@ -68,11 +68,6 @@ class _ImageDetailState extends State<ImageDetail> {
     super.dispose();
   }
 
-  void _notifyUpdate() {
-    if (widget.onImageUpdated != null) {
-      widget.onImageUpdated!(currentImage);
-    }
-  }
 
   // 统一状态更新方法
   void _updateState(ImageModel updatedImage) {
@@ -121,23 +116,6 @@ class _ImageDetailState extends State<ImageDetail> {
         context,
       ).showSnackBar(SnackBar(content: Text('上传失败: ${e.toString()}')));
     }
-  }
-
-  // 显示MD5信息
-  void _showMd5Info() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('图片MD5信息'),
-        content: Text('MD5: ${currentImage.md5}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
   }
 
   // 更新图片状态

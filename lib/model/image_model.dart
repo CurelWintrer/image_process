@@ -7,7 +7,7 @@ class ImageModel {
   final String? Fourth;
   final String? Fifth;
   final String imgName;
-  final String imgPath;
+  late final String imgPath;
   final String chinaElementName;
   String caption;
   final int? state;

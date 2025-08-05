@@ -627,6 +627,23 @@ class AllImagePageState extends State<AllImagePage> {
     );
   }
 
+  Future<void> handleImageUpload(ImageModel uploadImage) async {
+    // 更新父组件的状态
+    if (mounted) {
+      setState(() {
+        final index = _images.indexWhere(
+          (img) => img.imageID == uploadImage.imageID,
+        );
+        if (index != -1) {
+          _images[index] = uploadImage;
+        } else {
+          _images.add(uploadImage); // 如果不存在则添加
+        }
+      });
+      print(_images[4].imgPath);
+    }
+  }
+
   void _showImageDetail(ImageModel image) {
     showDialog(
       context: context,
@@ -637,22 +654,6 @@ class AllImagePageState extends State<AllImagePage> {
 
         return StatefulBuilder(
           builder: (context, setState) {
-            void handleImageUpdated(ImageModel updatedImage) {
-              setState(() => currentImage = updatedImage);
-
-              final index = _images.indexWhere(
-                (img) => img.imageID == updatedImage.imageID,
-              );
-              if (index != -1) {
-                // 更新父组件状态
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _images[index] = updatedImage);
-                  }
-                });
-              }
-            }
-
             return Dialog(
               insetPadding: const EdgeInsets.all(24),
               child: ConstrainedBox(
@@ -671,8 +672,8 @@ class AllImagePageState extends State<AllImagePage> {
                         child: ImageDetail(
                           key: ValueKey(currentImage.imageID), // 确保更新后的重建
                           image: currentImage,
-                          onImageUpdated: handleImageUpdated,
-                           onClose: () => Navigator.pop(context),
+                          onUpload: handleImageUpload,
+                          onClose: () => Navigator.pop(context),
                         ),
                       ),
                     ],
@@ -686,10 +687,8 @@ class AllImagePageState extends State<AllImagePage> {
     );
   }
 
-  // 图片显示组件（使用您实现的组件）
   Widget _buildImageWithFallback(String url) {
-    // 这里是您已实现的图片加载组件
-    // 示例：使用Image.network并添加错误处理
+    // 使用Image.network并添加错误处理
     return Image.network(
       url,
       fit: BoxFit.cover,

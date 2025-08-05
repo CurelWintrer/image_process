@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/image_state.dart';
+import 'package:image_process/tools/UploadHelper%20.dart';
 import 'package:image_process/user_session.dart';
 
 // 定义回调类型
 typedef ImageUpdateCallback = void Function(ImageModel updatedImage);
+typedef UploadCallback=void Function(ImageModel uploadImage);
 
 class ImageDetail extends StatefulWidget {
   final ImageModel image;
   final ImageUpdateCallback? onImageUpdated;
   final VoidCallback? onClose;
   final Future<void> Function()? onDownload; // 可选的下载回调
-  final Future<void> Function()? onUpload; // 可用的上传回调
+  final UploadCallback? onUpload; // 可用的上传回调
   final Future<String> Function()? onAIGenerate; // AI生成描述回调
+  final Future<void> Function()? onUpdateState;
 
   const ImageDetail({
     super.key,
@@ -22,6 +25,7 @@ class ImageDetail extends StatefulWidget {
     this.onDownload,
     this.onUpload,
     this.onAIGenerate,
+    this.onUpdateState,
   });
 
   @override
@@ -60,6 +64,14 @@ class _ImageDetailState extends State<ImageDetail> {
     }
   }
 
+    // 统一状态更新方法
+  void _updateState(ImageModel updatedImage) {
+    setState(() => currentImage = updatedImage);
+    // 通知所有可能的更新回调
+    if (widget.onImageUpdated != null) widget.onImageUpdated!(updatedImage);
+    if (widget.onUpload != null) widget.onUpload!(updatedImage);
+  }
+
   // 图片下载处理
   Future<void> _downloadImage() async {
     if (widget.onDownload != null) {
@@ -73,12 +85,30 @@ class _ImageDetailState extends State<ImageDetail> {
 
   // 图片上传处理
   Future<void> _uploadImage() async {
-    if (widget.onUpload != null) {
-      await widget.onUpload!();
-    } else {
+      try {
+      // 创建更新后的图片对象
+      final response = await UploadHelper.pickAndUpload(
+        context: context,
+        imageID: currentImage.imageID,
+      );
+           // 创建更新后的图片对象
+      final updatedImage = currentImage.copyWith(
+        imgPath: response?['imgPath'],
+        imgName: response?['fileName'],
+        md5: response?['md5'],
+        updated_at: DateTime.now().toIso8601String(),
+      );
+      _updateState(updatedImage);
+
+      _notifyUpdate();
+
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('上传成功')),
+      // );
+    } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('上传功能已触发')));
+      ).showSnackBar(SnackBar(content: Text('上传失败: ${e.toString()}')));
     }
   }
 

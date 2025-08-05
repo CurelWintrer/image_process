@@ -126,7 +126,9 @@ class ImageService {
   static Future<void> updateImageCaption({
     required int imageID,
     required String newCaption,
+    String? token,
   }) async {
+    print(token);
     final response = await http.post(
       Uri.parse('${UserSession().baseUrl}/api/image/update-captions'),
       headers: {
@@ -140,7 +142,7 @@ class ImageService {
       }),
     );
 
-    print(response.body);
+    // print(response.body);
 
     if (response.statusCode != 200) {
       throw Exception('数据库更新失败: ${response.statusCode}, ${response.body}');

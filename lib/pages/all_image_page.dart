@@ -1,9 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/image_state.dart';
 import 'package:image_process/model/tree_node.dart';
+import 'package:image_process/tools/GetCaption.dart';
+import 'package:image_process/tools/ImageBatchService.dart';
 import 'package:image_process/user_session.dart';
 import 'package:image_process/widget/image_detail.dart';
 
@@ -242,6 +248,7 @@ class AllImagePageState extends State<AllImagePage> {
     });
   }
 
+  //底部多选操作兰
   Widget _buildSelectionToolbar() {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -258,14 +265,459 @@ class AllImagePageState extends State<AllImagePage> {
               ),
               SizedBox(width: 16),
               IconButton(
-                icon: Icon(Icons.delete, color: Colors.red),
-                onPressed: () => {},
+                icon: Icon(Icons.download, color: Colors.green),
+                onPressed: () => {
+                  ImageBatchService.downloadImages(
+                    context: context,
+                    selectedImages: _selectedImages.toList(),
+                  ),
+                },
               ),
+              SizedBox(width: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 244, 177, 54),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 10,
+                  ),
+                ),
+                child: const Text(
+                  '更改状态',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                onPressed: () => {_setImagesState()},
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 54, 130, 244),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 10,
+                  ),
+                ),
+                child: const Text(
+                  'Caption',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                onPressed: () => {_batchUpdateCaptions()},
+              ),
+              const SizedBox(width: 8),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _setImagesState() async {
+    if (_selectedImages.isEmpty) {
+      _showMessage('请先选择要修改的图片');
+      return;
+    }
+
+    // 1. 显示状态选择对话框并等待用户选择
+    final int? selectedState = await _showStateSelectorDialog(context);
+
+    // 如果用户取消了选择，直接返回
+    if (selectedState == null) {
+      return;
+    }
+
+    // 2. 准备请求数据
+    final requestBody = {
+      'states': _selectedImages.map((image) {
+        return {'imageID': image.imageID, 'state': selectedState};
+      }).toList(),
+    };
+
+    // 3. 显示加载指示器
+    final progressDialogContext = Navigator.of(
+      context,
+      rootNavigator: true,
+    ).context;
+    showDialog(
+      context: progressDialogContext,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('正在更新'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在更新 ${_selectedImages.length} 张图片状态...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // 4. 发送请求
+      final response = await http.post(
+        Uri.parse('${UserSession().baseUrl}/api/image/update-states'),
+        headers: {
+          'Authorization': 'Bearer ${UserSession().token}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      // 5. 处理响应
+      if (response.statusCode == 200) {
+        // 解析响应数据
+        final responseData = jsonDecode(response.body);
+        final List<dynamic> results = responseData['results'];
+
+        // 创建ID到更新结果的映射
+        final Map<int, Map<String, dynamic>> updateMap = {};
+        for (var result in results) {
+          updateMap[result['imageID'] as int] = {
+            'affectedRows': result['affectedRows'],
+            'newState': result['newState'],
+          };
+        }
+
+        // 更新本地数据 - 只更新状态字段
+        setState(() {
+          for (var image in List.from(_selectedImages)) {
+            if (updateMap.containsKey(image.imageID)) {
+              // 只更新状态字段
+              final newState = updateMap[image.imageID]!['newState'] as int;
+
+              // 在图片列表中查找该图片并更新状态
+              final index = _images.indexWhere(
+                (img) => img.imageID == image.imageID,
+              );
+              if (index != -1) {
+                _images[index] = _images[index].copyWith(state: newState);
+              }
+
+              // 从选中列表中移除已处理的图片
+              _selectedImages.remove(image);
+            }
+          }
+
+          // 如果没有选中的图片了，退出多选模式
+          if (_selectedImages.isEmpty) {
+            _isSelecting = false;
+          }
+        });
+
+        // 显示成功消息
+        final successCount = updateMap.length;
+        _showMessage('成功更新 $successCount 张图片状态');
+      }
+      // 处理错误响应
+      else if (response.statusCode >= 400 && response.statusCode < 500) {
+        final errorResponse = jsonDecode(response.body);
+        throw Exception(
+          errorResponse['message'] ?? '状态更新失败: ${response.statusCode}',
+        );
+      } else {
+        throw Exception('服务器错误: ${response.statusCode}');
+      }
+    } catch (e) {
+      // 显示错误消息
+      _showMessage('状态更新失败: ${e.toString()}');
+    } finally {
+      // 关闭加载对话框
+      Navigator.of(progressDialogContext, rootNavigator: true).pop();
+    }
+  }
+
+  // 状态选择对话框
+  Future<int?> _showStateSelectorDialog(BuildContext context) async {
+    return await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('设置图片状态'),
+        content: Container(
+          width: double.minPositive,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _buildStateOption(0, '未检查', context),
+              _buildStateOption(1, '正在检查', context),
+              _buildStateOption(3, '正在审核', context),
+              _buildStateOption(4, '审核通过', context),
+              _buildStateOption(5, '废弃', context),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建状态选项
+  Widget _buildStateOption(
+    int stateValue,
+    String stateName,
+    BuildContext context,
+  ) {
+    return ListTile(
+      title: Text(stateName),
+      leading: Icon(Icons.circle, color: ImageState.getStateColor(stateValue)),
+      onTap: () => Navigator.pop(context, stateValue),
+    );
+  }
+
+  Future<void> _batchUpdateCaptions() async {
+    if (_selectedImages.isEmpty) {
+      _showMessage('请先选择要更新的图片');
+      return;
+    }
+
+    // 1. 准备进度对话框
+    bool isDialogOpen = false;
+    void Function(void Function())? updateDialogState;
+    bool processCancelled = false;
+    int processedCount = 0;
+    int successCount = 0;
+    int errorCount = 0;
+    final errors = <String>[];
+    Completer<void>? completer; // 用于等待任务完成的Completer
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        isDialogOpen = true;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            updateDialogState = setState;
+            return AlertDialog(
+              title: const Text('批量更新Caption中'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(
+                    value: processedCount / _selectedImages.length,
+                  ),
+                  const SizedBox(height: 16),
+                  Text('已处理: $processedCount/${_selectedImages.length}'),
+                  Text('成功: $successCount, 失败: $errorCount'),
+                  if (errors.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text('错误列表:'),
+                    ...errors
+                        .take(3)
+                        .map(
+                          (e) => Text(
+                            e,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    processCancelled = true;
+                    completer?.complete(); // 完成completer以退出等待
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('取消'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    try {
+      // 2. 使用不同的ReceivePort来处理不同的消息类型
+      final isolatePorts = <SendPort>[];
+      final resultsPort = ReceivePort(); // 用于接收结果
+      final isolates = <Isolate>[];
+      int isolateReadyCount = 0;
+
+      // 使用单独的端口来接收isolate准备好的消息
+      final isolateReadyPort = ReceivePort();
+      isolateReadyPort.listen((message) {
+        if (message is SendPort) {
+          isolatePorts.add(message);
+          isolateReadyCount++;
+        }
+      });
+
+      // 3. 启动隔离区
+      final isolateCount = min(8, Platform.numberOfProcessors);
+      for (int i = 0; i < isolateCount; i++) {
+        final isolate = await Isolate.spawn(_isolateCaptionUpdate, {
+          'mainSendPort': isolateReadyPort.sendPort, // 用于发送isolate的SendPort
+          'resultSendPort': resultsPort.sendPort, // 用于发送任务结果
+          'token': UserSession().token,
+          'baseUrl': UserSession().baseUrl,
+        });
+        isolates.add(isolate);
+      }
+
+      // 等待所有隔离区准备好
+      await Future.doWhile(() async {
+        await Future.delayed(Duration(milliseconds: 100));
+        return isolateReadyCount < isolateCount;
+      });
+
+      // 关闭isolate准备端口
+      isolateReadyPort.close();
+
+      // 4. 分发任务给各隔离区
+      final tasksPerIsolate = (_selectedImages.length / isolateCount).ceil();
+      for (int i = 0; i < isolateCount; i++) {
+        final startIndex = i * tasksPerIsolate;
+        final endIndex = min((i + 1) * tasksPerIsolate, _selectedImages.length);
+        if (startIndex < endIndex) {
+          final imagesForIsolate = _selectedImages.toList().sublist(
+            startIndex,
+            endIndex,
+          );
+          isolatePorts[i].send({
+            'type': 'tasks',
+            'images': imagesForIsolate.map((img) => img.toJson()).toList(),
+          });
+        }
+      }
+
+      // 5. 声明Completer用于等待任务完成
+      completer = Completer<void>();
+
+      // 6. 处理结果
+      StreamSubscription? resultsSubscription;
+      resultsSubscription = resultsPort.listen((response) async {
+        if (processCancelled) return;
+
+        final status = response['status'];
+        final imageName = response['imageName'] ?? '';
+        final message = response['message'] ?? '';
+
+        setState(() {
+          processedCount++;
+          if (status == 'success') {
+            successCount++;
+            // 更新本地数据
+            _images = _images.map((img) {
+              if (img.imgName == imageName) {
+                return img.copyWith(caption: message);
+              }
+              return img;
+            }).toList();
+          } else {
+            errorCount++;
+            if (errors.length < 5) {
+              errors.add('$imageName: $message');
+            }
+          }
+        });
+
+        if (updateDialogState != null) {
+          updateDialogState!(() {});
+        }
+
+        // 所有任务完成
+        if (processedCount >= _selectedImages.length) {
+          completer?.complete();
+        }
+      });
+
+      // 7. 等待任务完成
+      await completer.future;
+
+      // 8. 清理资源
+      resultsSubscription?.cancel();
+      resultsPort.close();
+
+      // 9. 关闭所有隔离区
+      for (var isolate in isolates) {
+        isolate.kill();
+      }
+    } catch (e) {
+      _showMessage('批量更新出错: ${e.toString()}');
+    } finally {
+      if (isDialogOpen) {
+        Navigator.of(context).pop();
+      }
+
+      // 显示最终结果
+      final result = '成功更新: $successCount, 失败: $errorCount';
+      _showMessage(result);
+    }
+  }
+
+  static void _isolateCaptionUpdate(Map<String, dynamic> initData) async {
+    final baseUrl = initData['baseUrl'] as String;
+    final mainSendPort = initData['mainSendPort'] as SendPort;
+    final resultSendPort = initData['resultSendPort'] as SendPort;
+    final token = initData['token'] as String;
+    // 创建隔离区自己的接收端口
+    final isolatePort = ReceivePort();
+
+    // 发送隔离区的SendPort给主isolate
+    mainSendPort.send(isolatePort.sendPort);
+
+    // 监听来自主isolate的任务
+    isolatePort.listen((message) async {
+      if (message['type'] == 'tasks') {
+        final imagesJson = message['images'] as List<dynamic>;
+        final images = imagesJson
+            .map((json) => ImageModel.fromJson(json))
+            .toList();
+
+        for (var image in images) {
+          try {
+            // 1. 下载图片
+            final imgUrl = '$baseUrl/img/${image.imgPath}';
+            final base64Image =
+                await ImageService.downloadImageAndConvertToBase64(imgUrl);
+
+            // 2. 调用AI更新描述 - 使用ImageService的新方法
+            final aiResponse = await ImageService.getImageCaptionFromAI(
+              base64Image,
+              image,
+            );
+            final newCaption = aiResponse.content;
+
+            // 3. 更新数据库
+            await ImageService.updateImageCaption(
+              imageID: image.imageID,
+              newCaption: newCaption,
+              token: token,
+            );
+
+            // 发送成功消息
+            resultSendPort.send({
+              'status': 'success',
+              'imageName': image.imgName,
+              'message': newCaption,
+            });
+          } catch (e) {
+            // 发送错误消息
+            resultSendPort.send({
+              'status': 'error',
+              'imageName': image.imgName,
+              'message': e.toString(),
+            });
+          }
+        }
+      }
+    });
   }
 
   void _toggleSelectAll() {
@@ -643,8 +1095,6 @@ class AllImagePageState extends State<AllImagePage> {
     }
   }
 
-
-
   void _showImageDetail(ImageModel image) {
     showDialog(
       context: context,
@@ -676,6 +1126,7 @@ class AllImagePageState extends State<AllImagePage> {
                           onUpload: handleImageUpdated,
                           onClose: () => Navigator.pop(context),
                           onAIGenerate: handleImageUpdated,
+                          onUpdateState: handleImageUpdated,
                         ),
                       ),
                     ],

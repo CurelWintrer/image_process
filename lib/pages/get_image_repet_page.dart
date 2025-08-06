@@ -284,7 +284,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     }
   }
 
-
   // 执行Python脚本分析重复图片
   Future<void> _runPythonScript() async {
     if (_selectedFolderPath == null) {
@@ -317,10 +316,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     );
 
     try {
-      final script = path.join(
-        Directory.current.path,
-        'imageprocess\\processImage.exe',
-      );
+      final script = path.join('${UserSession().getRepetPath}','processImage.exe');
       final result = await Process.run(script, [_selectedFolderPath!]);
 
       if (result.exitCode != 0) {
@@ -861,7 +857,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     );
   }
 
-  //状态更新
   // 状态更新
   Future<void> handleImageUpdated(ImageModel updatedImage) async {
     // 更新父组件的状态

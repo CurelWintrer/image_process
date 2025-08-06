@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart'; // 新增文件选择器包
 import 'package:image_process/user_session.dart';
 
 class SystemSet extends StatefulWidget {
@@ -13,6 +14,7 @@ class _SystemSetState extends State<SystemSet> {
   late TextEditingController _baseUrlController;
   late TextEditingController _apiUrlController;
   late TextEditingController _apiKeyController;
+  late TextEditingController _folderPathController; // 新增路径控制器
 
   @override
   void initState() {
@@ -22,6 +24,7 @@ class _SystemSetState extends State<SystemSet> {
     _baseUrlController = TextEditingController(text: session.baseUrl);
     _apiUrlController = TextEditingController(text: session.apiUrl);
     _apiKeyController = TextEditingController(text: session.apiKey);
+    _folderPathController = TextEditingController(text: session.getRepetPath); // 初始化路径
   }
 
   @override
@@ -29,7 +32,26 @@ class _SystemSetState extends State<SystemSet> {
     _baseUrlController.dispose();
     _apiUrlController.dispose();
     _apiKeyController.dispose();
+    _folderPathController.dispose(); // 释放资源
     super.dispose();
+  }
+
+  // 新增：文件夹选择方法
+  Future<void> _pickFolder() async {
+    try {
+      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+      if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
+        setState(() {
+          _folderPathController.text = selectedDirectory;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('路径选择失败: $e'))
+        );
+      }
+    }
   }
 
   void _saveSettings() async {
@@ -39,19 +61,20 @@ class _SystemSetState extends State<SystemSet> {
           newBaseUrl: _baseUrlController.text,
           newApiUrl: _apiUrlController.text,
           newApiKey: _apiKeyController.text,
+          newGetRepetPath: _folderPathController.text, // 传递选择的路径
         );
         await UserSession().loadFromPrefs();
 
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('设置保存成功！')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('设置保存成功！'))
+          );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('保存失败: $e'))
+          );
         }
       }
     }
@@ -62,15 +85,14 @@ class _SystemSetState extends State<SystemSet> {
     return Scaffold(
       appBar: AppBar(title: const Text('系统设置')),
       body: Center(
-        // 使用Center使内容居中
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500), // 最大宽度限制在500px
+          constraints: const BoxConstraints(maxWidth: 500),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0), // 水平内边距
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Form(
               key: _formKey,
               child: ListView(
-                shrinkWrap: true, // 使ListView适应内容高度
+                shrinkWrap: true,
                 children: [
                   const SizedBox(height: 20),
                   _buildTextField(
@@ -93,6 +115,48 @@ class _SystemSetState extends State<SystemSet> {
                     hint: 'sk-xxxxxxxxxxxxxxxx',
                     icon: Icons.vpn_key,
                     obscureText: true,
+                  ),
+                  // 新增文件夹选择组件
+                  const SizedBox(height: 20),
+                  Text(
+                    '结果保存路径',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _folderPathController,
+                          decoration: InputDecoration(
+                            hintText: '请选择文件夹路径',
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 14, horizontal: 16),
+                          ),
+                          readOnly: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '请选择结果保存路径';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.folder_open, size: 28),
+                        style: IconButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer),
+                        onPressed: _pickFolder,
+                        tooltip: '选择文件夹',
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 30),
                   _buildSaveButton(),

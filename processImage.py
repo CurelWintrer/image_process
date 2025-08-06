@@ -100,7 +100,7 @@ def find_similar_images(image_folder):
                 resnet_feats[i].reshape(1,-1),
                 resnet_feats[j].reshape(1,-1)
             )[0][0]
-            if s1>0.4 and s2>0.4:
+            if s1>0.98 and s2>0.98:
                 group.add(image_paths[j])
         similarity_groups.append(sorted(group))
     return similarity_groups

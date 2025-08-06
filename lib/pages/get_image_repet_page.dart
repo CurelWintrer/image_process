@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_process/widget/image_detail.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/tree_node.dart';
@@ -802,8 +803,68 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
   }
 
   /// 构建单张图片项
-  Widget _buildImageItem(ImageModel image) {
-    return Container(
+  // Widget _buildImageItem(ImageModel image) {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       border: Border.all(color: Colors.grey[300]!),
+  //       borderRadius: BorderRadius.circular(4),
+  //     ),
+  //     child: Stack(
+  //       fit: StackFit.expand,
+  //       children: [
+  //         // 图片缩略图
+  //         Image.network(
+  //           '$_baseUrl/img/${image.imgPath}',
+  //           fit: BoxFit.cover,
+  //           loadingBuilder: (context, child, loadingProgress) {
+  //             if (loadingProgress == null) return child;
+  //             return const Center(child: CircularProgressIndicator());
+  //           },
+  //           errorBuilder: (context, error, stackTrace) {
+  //             return const Center(
+  //               child: Icon(Icons.broken_image, color: Colors.grey),
+  //             );
+  //           },
+  //         ),
+
+  //         // 图片信息
+  //         Positioned(
+  //           left: 0,
+  //           right: 0,
+  //           bottom: 0,
+  //           child: Container(
+  //             padding: const EdgeInsets.all(4),
+  //             color: Colors.black54,
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   image.imgName,
+  //                   maxLines: 1,
+  //                   overflow: TextOverflow.ellipsis,
+  //                   style: const TextStyle(color: Colors.white, fontSize: 12),
+  //                 ),
+  //                 Text(
+  //                   image.chinaElementName,
+  //                   maxLines: 1,
+  //                   overflow: TextOverflow.ellipsis,
+  //                   style: const TextStyle(color: Colors.white, fontSize: 10),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+  // ... 前面代码保持不变 ...
+
+/// 构建单张图片项
+Widget _buildImageItem(ImageModel image) {
+  return InkWell( // 添加可点击效果
+    onTap: () => _showImageDetail(image), // 点击时打开详情
+    child: Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(4),
@@ -855,13 +916,78 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
           ),
         ],
       ),
+    ),
+  );
+}
+
+/// 显示图片详情弹窗
+void _showImageDetail(ImageModel image) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useSafeArea: true,
+      builder: (context) {
+        ImageModel currentImage = image;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        // 使用Flexible
+                        child: ImageDetail(
+                          key: ValueKey(currentImage.imageID), // 确保更新后的重建
+                          image: currentImage,
+                          onUpload: handleImageUpdated,
+                          onClose: () => Navigator.pop(context),
+                          onAIGenerate: handleImageUpdated,
+                          onUpdateState: handleImageUpdated,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
+
+// ... 后面代码保持不变 ...
 
   /// 显示消息提示
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+    Future<void> handleImageUpdated(ImageModel uploadImage) async {
+    // 更新父组件的状态
+    if (mounted) {
+      setState(() {
+        // final index = _images.indexWhere(
+        //   (img) => img.imageID == uploadImage.imageID,
+        // );
+        // if (index != -1) {
+        //   _images[index] = uploadImage;
+        // } else {
+        //   _images.add(uploadImage); // 如果不存在则添加
+        // }
+      });
+    }
   }
 }

@@ -74,9 +74,7 @@ class AllImagePageState extends State<AllImagePage> {
   Future<void> _loadMoreImages() async {
     // 如果正在加载或没有更多数据则退出
     if (_isImagesLoading || !_hasMore) return;
-
     setState(() => _isImagesLoading = true);
-
     try {
       final params = {
         'page': (_currentPage + 1).toString(),

@@ -245,6 +245,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
           'Fourth': _selectedLevel4,
         if (_selectedLevel5 != null && _selectedLevel5!.isNotEmpty)
           'Fifth': _selectedLevel5,
+        'goodState':'true',
       };
 
       final response = await http.get(
@@ -283,87 +284,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     }
   }
 
-  // 下载所有图片
-Future<void> _downloadAllImages() async {
-  if (_selectedFolderPath == null) {
-    _showMessage('请先选择下载文件夹');
-    return;
-  }
-
-  if (_allImages.isEmpty) {
-    _showMessage('没有图片可下载');
-    return;
-  }
-
-  setState(() {
-    _processing = true;
-    _downloadProgress = 0.0;
-    _currentDownloadCount = 0;
-    _totalDownloadCount = _allImages.length;
-  });
-
-  // 显示下载进度弹窗
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      title: const Text('正在下载图片'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LinearProgressIndicator(value: _downloadProgress),
-          const SizedBox(height: 16),
-          Text('正在下载: $_currentDownloadCount/$_totalDownloadCount'),
-        ],
-      ),
-    ),
-  );
-
-  try {
-    // 使用异步队列确保UI有机会更新
-    for (int i = 0; i < _allImages.length; i++) {
-      await _downloadImage(_allImages[i], _selectedFolderPath!);
-
-      // 更新进度
-      if (mounted) {
-        setState(() {
-          _currentDownloadCount = i + 1;
-          _downloadProgress = (i + 1) / _totalDownloadCount;
-        });
-      }
-    }
-
-    _showMessage('下载完成!');
-  } catch (e) {
-    _showMessage('下载失败: $e');
-  } finally {
-    setState(() => _processing = false);
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-  }
-}
-
-  // 下载单张图片
-  Future<void> _downloadImage(ImageModel image, String folderPath) async {
-    try {
-      final imageUrl = '$_baseUrl/img/${image.imgPath}';
-      final response = await http.get(
-        Uri.parse(imageUrl),
-        headers: {'Authorization': 'Bearer $_token'},
-      );
-
-      if (response.statusCode == 200) {
-        final filePath = path.join(folderPath, image.imgName);
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-      } else {
-        throw Exception('下载失败: HTTP ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('下载失败: ${image.imgName} - $e');
-    }
-  }
 
   // 执行Python脚本分析重复图片
   Future<void> _runPythonScript() async {

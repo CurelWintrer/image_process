@@ -119,7 +119,7 @@ class _SystemSetState extends State<SystemSet> {
                   // 新增文件夹选择组件
                   const SizedBox(height: 20),
                   Text(
-                    '结果保存路径',
+                    '查重程序路径',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),

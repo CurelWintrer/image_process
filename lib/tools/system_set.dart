@@ -60,18 +60,7 @@ class _SystemSetState extends State<SystemSet> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => {
-            Navigator.pushReplacementNamed(
-              context,
-              '/home',
-            ),
-          },
-        ),
-        title: const Text('系统设置'),
-      ),
+      appBar: AppBar(title: const Text('系统设置')),
       body: Center(
         // 使用Center使内容居中
         child: ConstrainedBox(

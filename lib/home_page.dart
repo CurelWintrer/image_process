@@ -265,7 +265,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _toggleSettings() {
-    Navigator.pushReplacementNamed(context, '/systemSet');
+    Navigator.pushNamed(context, '/systemSet');
   }
 
   void logout() async {

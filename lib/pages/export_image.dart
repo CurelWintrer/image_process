@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/title_type.dart';
+import 'package:image_process/model/tree_node.dart';
 import 'package:image_process/user_session.dart';
 import 'package:path/path.dart' as path;
 import 'package:file_picker/file_picker.dart';
@@ -37,10 +38,27 @@ class _ExportImageState extends State<ExportImage> {
   StreamController<String> _statusStream = StreamController.broadcast();
   StreamController<int> _progressStream = StreamController.broadcast();
 
+  List<TreeNode> _titleTree = [];
+
+  // 当前选择的标题
+  String? _selectedLevel1;
+  String? _selectedLevel2;
+  String? _selectedLevel3;
+  String? _selectedLevel4;
+  String? _selectedLevel5;
+
+  // 标题选项
+  List<String> _level1Options = [];
+  List<TreeNode> _level2Nodes = [];
+  List<TreeNode> _level3Nodes = [];
+  List<TreeNode> _level4Nodes = [];
+  List<TreeNode> _level5Nodes = [];
+
   @override
   void initState() {
     super.initState();
     fetchTitleTypes();
+    _loadTitleTree();
   }
 
   @override
@@ -53,13 +71,12 @@ class _ExportImageState extends State<ExportImage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('导出图片')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTitleSelectors(),
+            _buildTitleSelector(),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
@@ -75,56 +92,203 @@ class _ExportImageState extends State<ExportImage> {
     );
   }
 
-  // 构建多级标题选择器
-  Widget _buildTitleSelectors() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLevelSelector('一级标题', 'First'),
-        _buildLevelSelector('二级标题', 'Second'),
-        _buildLevelSelector('三级标题', 'Third'),
-        _buildLevelSelector('四级标题', 'Fourth'),
-        _buildLevelSelector('五级标题', 'Fifth'),
-      ],
+  Widget _buildLevelDropdown({
+    required String? value,
+    required List<String> options,
+    required String hint,
+    bool enabled = true,
+    ValueChanged<String?>? onChanged,
+  }) {
+    // 确保当前值存在于选项中
+    final effectiveValue = options.contains(value) ? value : null;
+    return Container(
+      width: 180,
+      child: DropdownButtonFormField<String>(
+        value: effectiveValue,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: hint,
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          if (options.isEmpty)
+            DropdownMenuItem(
+              value: null,
+              child: Text(
+                enabled ? '选择 $hint' : '无可用选项',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            ...options.map(
+              (title) => DropdownMenuItem(value: title, child: Text(title)),
+            ),
+        ],
+        onChanged: onChanged,
+        disabledHint: Text('请先选择上级标题'),
+      ),
     );
   }
 
-  Widget _buildLevelSelector(String label, String level) {
+  Widget _buildTitleSelector() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+      padding: const EdgeInsets.all(16.0),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
         children: [
-          SizedBox(width: 80, child: Text('$label:')),
-          Expanded(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: selectedTitles[level],
-              hint: const Text('未选择'),
-              items: _getDropdownItems(level),
-              onChanged: (value) =>
-                  setState(() => selectedTitles[level] = value),
-            ),
+          // 一级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel1,
+            options: _level1Options,
+            hint: '一级标题',
+            onChanged: (value) {
+              setState(() => _selectedLevel1 = value);
+              _updateDropdownOptions();
+              _selectedLevel2 = null;
+              _selectedLevel3 = null;
+              _selectedLevel4 = null;
+              _selectedLevel5 = null;
+            },
+          ),
+          // 二级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel2,
+            options: _level2Nodes.map((node) => node.title).toList(),
+            hint: '二级标题',
+            enabled: _level2Nodes.isNotEmpty,
+            onChanged: _level2Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel2 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel3 = null;
+                    _selectedLevel4 = null;
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+
+          // 三级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel3,
+            options: _level3Nodes.map((node) => node.title).toList(),
+            hint: '三级标题',
+            enabled: _level3Nodes.isNotEmpty,
+            onChanged: _level3Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel3 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel4 = null;
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+          // 四级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel4,
+            options: _level4Nodes.map((node) => node.title).toList(),
+            hint: '四级标题',
+            enabled: _level4Nodes.isNotEmpty,
+            onChanged: _level4Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel4 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+          // 五级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel5,
+            options: _level5Nodes.map((node) => node.title).toList(),
+            hint: '五级标题',
+            enabled: _level5Nodes.isNotEmpty,
+            onChanged: _level5Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel5 = value);
+                  }
+                : null,
           ),
         ],
       ),
     );
   }
 
-  // 获取下拉菜单选项
-  List<DropdownMenuItem<String>>? _getDropdownItems(String level) {
-    final levelData = {
-      'First': titleTypes?.first,
-      'Second': titleTypes?.second,
-      'Third': titleTypes?.third,
-      'Fourth': titleTypes?.fourth,
-      'Fifth': titleTypes?.fifth,
-    }[level];
+  Future<void> _loadTitleTree() async {
+    setState(() {});
 
-    return levelData
-        ?.map<DropdownMenuItem<String>>(
-          (value) => DropdownMenuItem(value: value, child: Text(value)),
-        )
-        .toList();
+    try {
+      final uri = Uri.parse('${UserSession().baseUrl}/api/image/title-tree');
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer ${UserSession().token}'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _titleTree = List<TreeNode>.from(
+              data['titleTree'].map((x) => TreeNode.fromJson(x)),
+            );
+            _level1Options = _titleTree.map((node) => node.title).toList();
+            // 初始化为空节点列表
+            _level2Nodes = [];
+            _level3Nodes = [];
+            _level4Nodes = [];
+            _level5Nodes = [];
+          });
+        } else {
+          _showMessage('标题获取失败');
+        }
+      } else if (response.statusCode == 401) {
+        _showMessage('请刷新登陆信息');
+      } else {
+        _showMessage('服务器内部错误');
+      }
+    } catch (e) {
+      _showMessage('标题获取失败');
+    }
+  }
+
+  void _updateDropdownOptions() {
+    // 如果选择了第一级，更新第二级选项
+    if (_selectedLevel1 != null) {
+      final level1Node = _titleTree.firstWhere(
+        (node) => node.title == _selectedLevel1,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level2Nodes = level1Node.children;
+    }
+
+    // 如果选择了第二级，更新第三级选项
+    if (_selectedLevel2 != null && _level2Nodes.isNotEmpty) {
+      final level2Node = _level2Nodes.firstWhere(
+        (node) => node.title == _selectedLevel2,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level3Nodes = level2Node.children;
+    }
+
+    // 如果选择了第三级，更新第四级选项
+    if (_selectedLevel3 != null && _level3Nodes.isNotEmpty) {
+      final level3Node = _level3Nodes.firstWhere(
+        (node) => node.title == _selectedLevel3,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level4Nodes = level3Node.children;
+    }
+
+    // 如果选择了第四级，更新第五级选项
+    if (_selectedLevel4 != null && _level4Nodes.isNotEmpty) {
+      final level4Node = _level4Nodes.firstWhere(
+        (node) => node.title == _selectedLevel4,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level5Nodes = level4Node.children;
+    }
+
+    setState(() {});
   }
 
   // 构建导出日志视图
@@ -208,11 +372,6 @@ class _ExportImageState extends State<ExportImage> {
 
   // 开始导出流程
   Future<void> _startExport() async {
-    // 验证至少选择了一个标题
-    if (selectedTitles.values.every((value) => value == null)) {
-      _showError('请至少选择一个标题');
-      return;
-    }
 
     // 重置导出状态
     setState(() {
@@ -275,8 +434,12 @@ class _ExportImageState extends State<ExportImage> {
         queryParameters: {
           'page': page.toString(),
           'limit': limit.toString(),
-          'goodState':'true',
-          ...selectedTitles.map((k, v) => MapEntry(k, v)),
+          'goodState': 'true',
+          if (_selectedLevel1 != null) 'First': _selectedLevel1!,
+          if (_selectedLevel2 != null) 'Second': _selectedLevel2!,
+          if (_selectedLevel3 != null) 'Third': _selectedLevel3!,
+          if (_selectedLevel4 != null) 'Fourth': _selectedLevel4!,
+          if (_selectedLevel5 != null) 'Fifth': _selectedLevel5!,
         },
       );
 
@@ -344,18 +507,18 @@ class _ExportImageState extends State<ExportImage> {
     }
   }
 
-  String _getJsonName(ImageModel image){
-    if(image.Fifth!=null){
+  String _getJsonName(ImageModel image) {
+    if (image.Fifth != null) {
       return image.Fifth.toString();
-    }else if(image.Fourth!=null){
+    } else if (image.Fourth != null) {
       return image.Fourth.toString();
-    }else if(image.Third!=null){
+    } else if (image.Third != null) {
       return image.Third.toString();
-    }else if(image.Second!=null){
+    } else if (image.Second != null) {
       return image.Second.toString();
-    }else if(image.First!=null){
+    } else if (image.First != null) {
       return image.First.toString();
-    }else{
+    } else {
       return '';
     }
   }
@@ -463,5 +626,12 @@ class _ExportImageState extends State<ExportImage> {
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
     _addLog(message, success: false);
+  }
+
+  /// 显示消息提示
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 }

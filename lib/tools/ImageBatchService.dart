@@ -33,7 +33,10 @@ class ImageBatchService {
   static Future<void> downloadImages({
     required BuildContext context,
     required List<ImageModel> selectedImages,
+    String? path,
   }) async {
+
+    
     if (selectedImages.isEmpty) {
       _showSnackBar(context, '请先选择要下载的图片');
       return;
@@ -46,6 +49,7 @@ class ImageBatchService {
         await _downloadForWindows(
           context: context,
           selectedImages: selectedImages,
+          selectedPath: path,
         );
       } else {
         throw Exception('当前平台不支持批量下载');
@@ -58,13 +62,14 @@ class ImageBatchService {
   static Future<void> _downloadForWindows({
     required BuildContext context,
     required List<ImageModel> selectedImages,
+    String? selectedPath,
   }) async {
     // Windows环境具体实现...
     // 实现代码结构与原_downloadImagesForWindows相同
     // 需要将原方法中的state更新改为通过回调处理
-    final selectedDirectory = await FilePicker.platform.getDirectoryPath();
-
-    if (selectedDirectory == null) {
+    
+    selectedPath ??= await FilePicker.platform.getDirectoryPath();
+    if (selectedPath == null) {
       _showSnackBar(context,'已取消选择文件夹');
       return;
     }
@@ -137,7 +142,7 @@ class ImageBatchService {
 
         final image = selectedImages[i];
         final imageUrl = '${UserSession().baseUrl}/img/${image.imgPath}';
-        final filePath = path.join(selectedDirectory, image.imgName);
+        final filePath = path.join(selectedPath, image.imgName);
 
         try {
           // 尝试下载文件
@@ -191,7 +196,7 @@ class ImageBatchService {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$resultMsg\n存储位置: $selectedDirectory'),
+                Text('$resultMsg\n存储位置: $selectedPath'),
                 if (errors.isNotEmpty) ...[
                   SizedBox(height: 16),
                   Text('失败列表:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -249,7 +254,7 @@ class ImageBatchService {
                   onPressed: () {
                     Navigator.pop(context);
                     Process.run('explorer', [
-                      selectedDirectory.replaceAll('/', '\\'),
+                      selectedPath!.replaceAll('/', '\\'),
                     ]);
                   },
                   child: Text('打开文件夹'),

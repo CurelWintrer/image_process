@@ -1,27 +1,773 @@
-
-
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui';
+import 'package:collection/collection.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_process/model/image_model.dart';
+import 'package:image_process/model/image_state.dart';
+import 'package:image_process/model/tree_node.dart';
+import 'package:image_process/user_session.dart';
+import 'package:image_process/widget/image_detail.dart';
 
-class GetImageRepetSamplePage extends StatefulWidget{
+class GetImageRepetSamplePage extends StatefulWidget {
   const GetImageRepetSamplePage({super.key});
 
   @override
-  State<StatefulWidget> createState() =>GetImageRepetSamplePageState();
+  State<StatefulWidget> createState() => GetImageRepetSamplePageState();
 }
 
-class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage>{
-  
+class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
+  // 当前选择的标题
+  String? _selectedLevel1;
+  String? _selectedLevel2;
+  String? _selectedLevel3;
+  String? _selectedLevel4;
+  String? _selectedLevel5;
+
+  // 标题选项
+  List<String> _level1Options = [];
+  List<TreeNode> _level2Nodes = [];
+  List<TreeNode> _level3Nodes = [];
+  List<TreeNode> _level4Nodes = [];
+  List<TreeNode> _level5Nodes = [];
+
+  List<TreeNode> _titleTree = [];
+
+  int _currentPage = 1;
+  int _limit = 100;
+
+  List<ImageModel> _images = [];
+  bool _isImagesLoading = false;
+  bool _hasMore = false;
+  int _totalItems = 0;
+
+  // 添加变量控制加载状态
+  bool _isLoadingAll = false;
+
+  final String baseUrl = UserSession().baseUrl;
+  final String token = UserSession().token ?? '';
+
+  // 新添加的变量
+  List<MapEntry<int, List<ImageModel>>> _groupedImages = []; // 分组结果
+  bool _isComputing = false; // 是否正在计算哈希
+
   @override
   void initState() {
     super.initState();
+    _loadTitleTree();
   }
 
+  // 添加查询重复按钮
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
+      body: Column(
+        children: [
+          // 标题选择器
+          _buildTitleSelector(),
+
+          // 添加查询重复按钮
+          // 修改按钮的onPressed逻辑
+          ElevatedButton.icon(
+            onPressed: !_isLoadingAll && !_isComputing
+                ? _findSimilarImages
+                : null,
+            icon: const Icon(Icons.search),
+            label: const Text('查询重复图片'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+
+          // 显示加载状态
+          if (_isComputing)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+
+          // 显示分组结果
+          if (_groupedImages.isNotEmpty)
+            Expanded(
+              child: ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      "发现 ${_groupedImages.length} 组相似图片",
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  ..._buildSimilarGroups(),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
-  
+
+  Future<void> handleImageUpdated(ImageModel updatedImage) async {
+    if (!mounted) return;
+
+    setState(() {
+      // 1. 更新主图片列表
+      final index = _images.indexWhere(
+        (img) => img.imageID == updatedImage.imageID,
+      );
+      if (index != -1) {
+        _images[index] = updatedImage;
+      }
+
+      // 2. 更新分组中的图片
+      _groupedImages = _groupedImages.map((group) {
+        final updatedGroup = group.value
+            .map(
+              (img) => img.imageID == updatedImage.imageID ? updatedImage : img,
+            )
+            .toList();
+        return MapEntry(group.key, updatedGroup);
+      }).toList();
+
+      // 3. 可选：如果需要重新计算分组
+      // _recalculateGroupsWithUpdatedImage(updatedImage);
+    });
+  }
+
+  void _showImageDetail(ImageModel image) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useSafeArea: true,
+      builder: (context) {
+        ImageModel currentImage = image;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        // 使用Flexible
+                        child: ImageDetail(
+                          key: ValueKey(currentImage.imageID), // 确保更新后的重建
+                          image: currentImage,
+                          onUpload: handleImageUpdated,
+                          onClose: () => Navigator.pop(context),
+                          onAIGenerate: handleImageUpdated,
+                          onUpdateState: handleImageUpdated,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 构建相似图片分组
+  List<Widget> _buildSimilarGroups() {
+    return _groupedImages.map((group) {
+      return Card(
+        margin: const EdgeInsets.all(8.0),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0, top: 8.0),
+                child: Text(
+                  "相似组 (${group.value.length}张)",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 5,
+                childAspectRatio: 0.7,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                padding: const EdgeInsets.all(8.0),
+                children: group.value.map((image) {
+                  final isAbandoned = image.state == ImageState.Abandoned;
+                  return GestureDetector(
+                    onTap: () => _showImageDetail(image),
+                    child: Stack(
+                      children: [
+                        Column(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.network(
+                                  '$baseUrl/img/${image.imgPath}',
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                        if (loadingProgress == null)
+                                          return child;
+                                        return const Center(
+                                          child: CircularProgressIndicator(),
+                                        );
+                                      },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.broken_image),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: Text(
+                                image.chinaElementName ?? '未命名',
+                                style: const TextStyle(fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              'ID: ${image.imageID}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isAbandoned)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.red.withOpacity(0.4),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.block,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    '废弃',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  // 查找相似图片
+  // 修改后的查找相似图片方法
+  Future<void> _findSimilarImages() async {
+    if (_images.isEmpty) {
+      // 如果没有图片，先加载所有图片
+      await _loadAllImages();
+    }
+
+    // 如果加载后还是没有图片，显示提示
+    if (_images.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('没有找到符合条件的图片')));
+      }
+      return;
+    }
+
+    // 显示计算哈希的对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            ValueListenableBuilder<int>(
+              valueListenable: ValueNotifier<int>(_groupedImages.length),
+              builder: (context, count, _) {
+                return Text('已发现 $count 组相似图片...');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      setState(() => _isComputing = true);
+      // 计算所有图片的哈希值
+      final hashResults = await _computeAllHashes();
+      // 分组相似图片
+      _groupImagesBySimilarity(hashResults);
+    } finally {
+      if (mounted) {
+        Navigator.pop(context); // 关闭对话框
+        setState(() => _isComputing = false);
+      }
+    }
+  }
+
+  // 计算所有图片的哈希值
+  Future<Map<ImageModel, int>> _computeAllHashes() async {
+    final Map<ImageModel, int> hashes = {};
+
+    for (final image in _images) {
+      try {
+        final hash = await _computeImageHash('$baseUrl/img/${image.imgPath}');
+        hashes[image] = hash;
+      } catch (e) {
+        // 忽略错误图片
+        debugPrint('Image hash computation failed: $e');
+      }
+    }
+
+    return hashes;
+  }
+
+  // 使用均值哈希算法计算图像哈希
+  Future<int> _computeImageHash(String imageUrl) async {
+    // 加载图像
+    final response = await http.get(Uri.parse(imageUrl));
+    if (response.statusCode != 200) {
+      throw Exception('Image download failed');
+    }
+
+    // 解码图像
+    final bytes = response.bodyBytes;
+    final codec = await instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    // 缩小图像以便处理 (8x8)
+    final width = image.width;
+    final height = image.height;
+    final scale = math.min(8 / width, 8 / height);
+    final scaledWidth = (width * scale).round();
+    final scaledHeight = (height * scale).round();
+
+    // 转换为灰度并计算平均值
+    final pixelData = await image.toByteData();
+    final pixels = pixelData!.buffer.asUint8List();
+    double sum = 0;
+    final grayPixels = <double>[];
+
+    for (int y = 0; y < scaledHeight; y++) {
+      for (int x = 0; x < scaledWidth; x++) {
+        final pixelIndex = (y * scaledWidth + x) * 4;
+        final r = pixels[pixelIndex];
+        final g = pixels[pixelIndex + 1];
+        final b = pixels[pixelIndex + 2];
+
+        // 转换为灰度 (使用加权平均值)
+        final gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        sum += gray;
+        grayPixels.add(gray);
+      }
+    }
+
+    // 计算平均值
+    final avg = sum / grayPixels.length;
+
+    // 生成哈希 (1表示大于平均值，0表示小于)
+    int hash = 0;
+    for (int i = 0; i < grayPixels.length; i++) {
+      if (grayPixels[i] > avg) {
+        hash |= (1 << i); // 设置第i位为1
+      }
+    }
+
+    return hash;
+  }
+
+  // 分组相似图片
+  void _groupImagesBySimilarity(Map<ImageModel, int> hashes) {
+    // 用于分组的数据结构
+    final groups = <int, List<ImageModel>>{};
+
+    // 自定义分组逻辑 (汉明距离小于2视为相似)
+    const threshold = 2;
+
+    // 首先按哈希值分组
+    final initialGroups = hashes.entries.groupListsBy((entry) => entry.value);
+
+    // 进一步合并相似组
+    for (final group in initialGroups.values) {
+      if (group.isEmpty) continue;
+
+      bool added = false;
+      for (final key in groups.keys) {
+        if (_hammingDistance(key, group.first.value) <= threshold) {
+          groups[key]!.addAll(group.map((e) => e.key));
+          added = true;
+          break;
+        }
+      }
+
+      if (!added) {
+        groups[group.first.value] = group.map((e) => e.key).toList();
+      }
+    }
+
+    // 过滤掉只有一个图片的分组
+    final validGroups = groups.entries
+        .where((entry) => entry.value.length > 1)
+        .toList();
+
+    setState(() => _groupedImages = validGroups);
+  }
+
+  // 计算汉明距离
+  int _hammingDistance(int a, int b) {
+    int distance = 0;
+    int xor = a ^ b;
+
+    while (xor > 0) {
+      distance += xor & 1;
+      xor >>= 1;
+    }
+
+    return distance;
+  }
+
+  // 修改后的获取所有图片方法
+  Future<void> _loadAllImages() async {
+    setState(() {
+      _isLoadingAll = true;
+      _isComputing = true;
+      _images.clear(); // 清空现有图片
+      _currentPage = 0; // 重置页码
+    });
+
+    // 显示加载对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            ValueListenableBuilder<int>(
+              valueListenable: ValueNotifier<int>(_images.length),
+              builder: (context, count, _) {
+                return Text('已加载 $count 张图片...');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // 循环加载直到没有更多数据
+      while (true) {
+        await _fetchAllImages();
+        if (!_hasMore) break;
+      }
+    } finally {
+      Navigator.pop(context); // 关闭加载对话框
+      setState(() => _isLoadingAll = false);
+    }
+  }
+
+  // 获取图片
+  Future<void> _fetchAllImages() async {
+    try {
+      final params = {
+        'page': (_currentPage + 1).toString(),
+        'limit': _limit.toString(),
+        if (_selectedLevel1 != null) 'First': _selectedLevel1!,
+        if (_selectedLevel2 != null) 'Second': _selectedLevel2!,
+        if (_selectedLevel3 != null) 'Third': _selectedLevel3!,
+        if (_selectedLevel4 != null) 'Fourth': _selectedLevel4!,
+        if (_selectedLevel5 != null) 'Fifth': _selectedLevel5!,
+        'goodState': 'true',
+      };
+
+      final uri = Uri.parse(
+        '$baseUrl/api/image/by-titles',
+      ).replace(queryParameters: params);
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final newImages = List<ImageModel>.from(
+          data['images'].map((img) => ImageModel.fromJson(img)),
+        );
+
+        setState(() {
+          _currentPage++;
+          _images.addAll(newImages);
+          // 判断是否还有更多数据
+          _hasMore = newImages.length >= _limit;
+          _totalItems = data['total'];
+        });
+      }
+    } catch (e) {
+    } finally {
+      setState(() => _isImagesLoading = false);
+    }
+  }
+
+  Future<void> _loadTitleTree() async {
+    setState(() {});
+
+    try {
+      final uri = Uri.parse('$baseUrl/api/image/title-tree');
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _titleTree = List<TreeNode>.from(
+              data['titleTree'].map((x) => TreeNode.fromJson(x)),
+            );
+            _level1Options = _titleTree.map((node) => node.title).toList();
+            // 初始化为空节点列表
+            _level2Nodes = [];
+            _level3Nodes = [];
+            _level4Nodes = [];
+            _level5Nodes = [];
+          });
+        } else {
+          _showMessage('标题获取失败');
+        }
+      } else if (response.statusCode == 401) {
+        _showMessage('请刷新登陆信息');
+      } else {
+        _showMessage('服务器内部错误');
+      }
+    } catch (e) {
+      _showMessage('标题获取失败');
+    }
+  }
+
+  Widget _buildTitleSelector() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: [
+          // 一级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel1,
+            options: _level1Options,
+            hint: '一级标题',
+            onChanged: (value) {
+              setState(() => _selectedLevel1 = value);
+              _updateDropdownOptions();
+              _selectedLevel2 = null;
+              _selectedLevel3 = null;
+              _selectedLevel4 = null;
+              _selectedLevel5 = null;
+            },
+          ),
+          // 二级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel2,
+            options: _level2Nodes.map((node) => node.title).toList(),
+            hint: '二级标题',
+            enabled: _level2Nodes.isNotEmpty,
+            onChanged: _level2Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel2 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel3 = null;
+                    _selectedLevel4 = null;
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+
+          // 三级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel3,
+            options: _level3Nodes.map((node) => node.title).toList(),
+            hint: '三级标题',
+            enabled: _level3Nodes.isNotEmpty,
+            onChanged: _level3Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel3 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel4 = null;
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+          // 四级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel4,
+            options: _level4Nodes.map((node) => node.title).toList(),
+            hint: '四级标题',
+            enabled: _level4Nodes.isNotEmpty,
+            onChanged: _level4Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel4 = value);
+                    _updateDropdownOptions();
+                    _selectedLevel5 = null;
+                  }
+                : null,
+          ),
+          // 五级标题下拉框
+          _buildLevelDropdown(
+            value: _selectedLevel5,
+            options: _level5Nodes.map((node) => node.title).toList(),
+            hint: '五级标题',
+            enabled: _level5Nodes.isNotEmpty,
+            onChanged: _level5Nodes.isNotEmpty
+                ? (value) {
+                    setState(() => _selectedLevel5 = value);
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevelDropdown({
+    required String? value,
+    required List<String> options,
+    required String hint,
+    bool enabled = true,
+    ValueChanged<String?>? onChanged,
+  }) {
+    // 确保当前值存在于选项中
+    final effectiveValue = options.contains(value) ? value : null;
+    return Container(
+      width: 180,
+      child: DropdownButtonFormField<String>(
+        value: effectiveValue,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: hint,
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          if (options.isEmpty)
+            DropdownMenuItem(
+              value: null,
+              child: Text(
+                enabled ? '选择 $hint' : '无可用选项',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            ...options.map(
+              (title) => DropdownMenuItem(value: title, child: Text(title)),
+            ),
+        ],
+        onChanged: onChanged,
+        disabledHint: Text('请先选择上级标题'),
+      ),
+    );
+  }
+
+  void _updateDropdownOptions() {
+    // 如果选择了第一级，更新第二级选项
+    if (_selectedLevel1 != null) {
+      final level1Node = _titleTree.firstWhere(
+        (node) => node.title == _selectedLevel1,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level2Nodes = level1Node.children;
+    }
+
+    // 如果选择了第二级，更新第三级选项
+    if (_selectedLevel2 != null && _level2Nodes.isNotEmpty) {
+      final level2Node = _level2Nodes.firstWhere(
+        (node) => node.title == _selectedLevel2,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level3Nodes = level2Node.children;
+    }
+
+    // 如果选择了第三级，更新第四级选项
+    if (_selectedLevel3 != null && _level3Nodes.isNotEmpty) {
+      final level3Node = _level3Nodes.firstWhere(
+        (node) => node.title == _selectedLevel3,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level4Nodes = level3Node.children;
+    }
+
+    // 如果选择了第四级，更新第五级选项
+    if (_selectedLevel4 != null && _level4Nodes.isNotEmpty) {
+      final level4Node = _level4Nodes.firstWhere(
+        (node) => node.title == _selectedLevel4,
+        orElse: () => TreeNode(id: -1, title: '', children: []),
+      );
+      _level5Nodes = level4Node.children;
+    }
+
+    setState(() {});
+  }
+
+  /// 显示消息提示
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
 }

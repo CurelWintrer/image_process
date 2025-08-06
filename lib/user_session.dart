@@ -12,20 +12,20 @@ class UserSession {
   String? email;
   int? role;
   int? id;
-  String baseUrl = 'http://127.0.0.1:3000';
-  String apiUrl='https://api.shubiaobiao.com/v1/chat/completions';
-  String apiKey='sk-D6lEXIuoNQ1aK6OWf0WD5jwKkhabovIyfxkHYVKPRqveGdj4';
+  String baseUrl = 'http://10.1.5.103:3000';
+  String apiUrl = 'https://api.shubiaobiao.com/v1/chat/completions';
+  String apiKey = 'sk-D6lEXIuoNQ1aK6OWf0WD5jwKkhabovIyfxkHYVKPRqveGdj4';
+  String getRepetPath = '';
 
-
-   /// 保存设置的键值常量
+  /// 保存设置的键值常量
   static const String _baseUrlKey = 'system_baseUrl';
   static const String _apiUrlKey = 'system_apiUrl';
   static const String _apiKeyKey = 'system_apiKey';
+  static const String _getRepetPath = '';
 
   bool get isLoggedIn => token != null;
 
   /// 初始化时从 SharedPreferences 加载用户信息
-  /// 修改：加载时初始化设置
   Future<void> loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     //  prefs.clear();
@@ -40,6 +40,7 @@ class UserSession {
     baseUrl = prefs.getString(_baseUrlKey) ?? baseUrl; // 保持默认值
     apiUrl = prefs.getString(_apiUrlKey) ?? apiUrl;
     apiKey = prefs.getString(_apiKeyKey) ?? apiKey;
+    getRepetPath = prefs.getString(_getRepetPath) ?? getRepetPath;
   }
 
   /// 新增：专用方法保存系统设置
@@ -47,18 +48,21 @@ class UserSession {
     required String newBaseUrl,
     required String newApiUrl,
     required String newApiKey,
+    required String newGetRepetPath,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     await prefs.setString(_baseUrlKey, newBaseUrl);
     await prefs.setString(_apiUrlKey, newApiUrl);
     await prefs.setString(_apiKeyKey, newApiKey);
-    
+    await prefs.setString(_getRepetPath, newGetRepetPath);
+
     baseUrl = newBaseUrl;
     apiUrl = newApiUrl;
     apiKey = newApiKey;
+    getRepetPath=newGetRepetPath;
+    UserSession().loadFromPrefs();
   }
-
 
   /// 登录时保存用户信息
   Future<void> saveToPrefs({
@@ -86,6 +90,5 @@ class UserSession {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-
   }
 }

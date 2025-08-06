@@ -4,6 +4,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_process/model/image_state.dart';
+import 'package:image_process/tools/ImageBatchService.dart';
+import 'package:image_process/widget/image_detail.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_process/model/image_model.dart';
 import 'package:image_process/model/tree_node.dart';
@@ -53,6 +56,8 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
   double _downloadProgress = 0.0;
   int _totalDownloadCount = 0;
   int _currentDownloadCount = 0;
+
+  bool _fetchingImages = false; // 添加这个新变量来跟踪图片加载状态
 
   @override
   void initState() {
@@ -148,6 +153,10 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
       return;
     }
 
+    setState(() {
+      _fetchingImages = true; // 设置加载状态
+    });
+
     // 显示加载弹窗
     showDialog(
       context: context,
@@ -182,10 +191,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
         await _fetchImagesByPage(currentPage);
 
         // 更新下载进度
-        totalImagesFetched += min(
-          _pageSize,
-          _allImages.length - totalImagesFetched,
-        );
+        totalImagesFetched = _allImages.length;
 
         // 更新弹窗内容
         if (context.mounted) {
@@ -214,6 +220,9 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     } finally {
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
+        setState(() {
+          _fetchingImages = false; // 清除加载状态
+        });
       }
     }
   }
@@ -236,6 +245,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
           'Fourth': _selectedLevel4,
         if (_selectedLevel5 != null && _selectedLevel5!.isNotEmpty)
           'Fifth': _selectedLevel5,
+        'goodState':'true',
       };
 
       final response = await http.get(
@@ -274,84 +284,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     }
   }
 
-  // 下载所有图片
-  Future<void> _downloadAllImages() async {
-    if (_selectedFolderPath == null) {
-      _showMessage('请先选择下载文件夹');
-      return;
-    }
-
-    if (_allImages.isEmpty) {
-      _showMessage('没有图片可下载');
-      return;
-    }
-
-    setState(() {
-      _processing = true;
-      _downloadProgress = 0.0;
-      _currentDownloadCount = 0;
-      _totalDownloadCount = _allImages.length;
-    });
-
-    // 显示下载进度弹窗
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('正在下载图片'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LinearProgressIndicator(value: _downloadProgress),
-            const SizedBox(height: 16),
-            Text('正在下载: $_currentDownloadCount/$_totalDownloadCount'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      for (int i = 0; i < _allImages.length; i++) {
-        await _downloadImage(_allImages[i], _selectedFolderPath!);
-
-        setState(() {
-          _currentDownloadCount = i + 1;
-          _downloadProgress = (i + 1) / _totalDownloadCount;
-        });
-      }
-
-      _showMessage('下载完成!');
-    } catch (e) {
-      _showMessage('下载失败: $e');
-    } finally {
-      setState(() => _processing = false);
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
-  }
-
-  // 下载单张图片
-  Future<void> _downloadImage(ImageModel image, String folderPath) async {
-    try {
-      final imageUrl = '$_baseUrl/img/${image.imgPath}';
-      final response = await http.get(
-        Uri.parse(imageUrl),
-        headers: {'Authorization': 'Bearer $_token'},
-      );
-
-      if (response.statusCode == 200) {
-        final filePath = path.join(folderPath, image.imgName);
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-      } else {
-        throw Exception('下载失败: HTTP ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('下载失败: ${image.imgName} - $e');
-    }
-  }
-
   // 执行Python脚本分析重复图片
   Future<void> _runPythonScript() async {
     if (_selectedFolderPath == null) {
@@ -384,10 +316,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     );
 
     try {
-      final script = path.join(
-        Directory.current.path,
-        'imageprocess\\processImage.exe',
-      );
+      final script = path.join('${UserSession().getRepetPath}','processImage.exe');
       final result = await Process.run(script, [_selectedFolderPath!]);
 
       if (result.exitCode != 0) {
@@ -513,6 +442,8 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
       body: Column(
         children: [
           // 标题选择和功能按钮
+          // 修改加载指示器部分
+          if (_loading || _fetchingImages) const LinearProgressIndicator(),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             child: Row(
@@ -525,7 +456,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
                   tooltip: '选择文件夹',
                 ),
                 IconButton(
-                  onPressed: _downloadAllImages,
+                  onPressed: ()=>{ImageBatchService.downloadImages(context: context,selectedImages: _allImages,path: _selectedFolderPath.toString())},
                   icon: const Icon(Icons.download, size: 24),
                   tooltip: '下载所有图片',
                   color: _selectedFolderPath != null
@@ -585,36 +516,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
 
           // 图片显示区域
           Expanded(child: _buildImageGrid()),
-
-          // 分页控件
-          if (!_showDuplicates && _allImages.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: _currentPage > 1
-                        ? () {
-                            setState(() => _currentPage--);
-                            _fetchImagesByPage(_currentPage);
-                          }
-                        : null,
-                  ),
-                  Text('第 $_currentPage 页 / 共 $_totalPages 页'),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: _currentPage < _totalPages
-                        ? () {
-                            setState(() => _currentPage++);
-                            _fetchImagesByPage(_currentPage);
-                          }
-                        : null,
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -780,81 +681,172 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
         },
       );
     } else {
-      if (_allImages.isEmpty) {
+      if (_loading) {
+        // 显示加载动画
+        return const Center(child: CircularProgressIndicator());
+      } else if (_allImages.isEmpty) {
         return const Center(child: Text('请选择标题并点击查询按钮'));
+      } else {
+        // 显示普通图片网格
+        return GridView.builder(
+          padding: const EdgeInsets.all(8),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            crossAxisSpacing: 4,
+            mainAxisSpacing: 4,
+            childAspectRatio: 1,
+          ),
+          itemCount: _allImages.length,
+          itemBuilder: (context, index) {
+            return _buildImageItem(_allImages[index]);
+          },
+        );
       }
-
-      // 显示普通图片网格
-      return GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-          childAspectRatio: 1,
-        ),
-        itemCount: _allImages.length,
-        itemBuilder: (context, index) {
-          return _buildImageItem(_allImages[index]);
-        },
-      );
     }
   }
 
   /// 构建单张图片项
   Widget _buildImageItem(ImageModel image) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 图片缩略图
-          Image.network(
-            '$_baseUrl/img/${image.imgPath}',
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const Center(child: CircularProgressIndicator());
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Icon(Icons.broken_image, color: Colors.grey),
-              );
-            },
-          ),
+    // 判断图片是否废弃
+    final isAbandoned = image.state == ImageState.Abandoned;
 
-          // 图片信息
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              color: Colors.black54,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    image.imgName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                  Text(
-                    image.chinaElementName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                  ),
-                ],
+    return InkWell(
+      onTap: () => _showImageDetail(image),
+      child: Container(
+        decoration: BoxDecoration(
+          // 根据状态设置边框颜色：废弃状态用红色，其他用灰色
+          border: Border.all(
+            color: isAbandoned ? Colors.red : Colors.grey[300]!,
+            // 废弃状态下边框更宽更显眼
+            width: isAbandoned ? 2.5 : 1.0,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 图片缩略图
+            Image.network(
+              '$_baseUrl/img/${image.imgPath}',
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator());
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey),
+                );
+              },
+            ),
+
+            // 如果图片已废弃，显示废弃标识
+            if (isAbandoned)
+              Container(
+                color: Colors.red.withOpacity(0.4), // 半透明红色背景
+                alignment: Alignment.center,
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.block, size: 40, color: Colors.white), // 废弃图标
+                    SizedBox(height: 8),
+                    Text(
+                      '废弃',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // 图片信息
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                color: isAbandoned
+                    ? Colors.red.withOpacity(0.8) // 废弃状态用红色背景
+                    : Colors.black54,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      image.chinaElementName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        // 废弃状态文字加粗
+                        fontWeight: isAbandoned
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    Text(
+                      image.imageID.toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  /// 显示图片详情弹窗
+  void _showImageDetail(ImageModel image) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useSafeArea: true,
+      builder: (context) {
+        ImageModel currentImage = image;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        // 使用Flexible
+                        child: ImageDetail(
+                          key: ValueKey(currentImage.imageID), // 确保更新后的重建
+                          image: currentImage,
+                          onUpload: handleImageUpdated,
+                          onClose: () => Navigator.pop(context),
+                          onAIGenerate: handleImageUpdated,
+                          onUpdateState: handleImageUpdated,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -863,5 +855,46 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  // 状态更新
+  Future<void> handleImageUpdated(ImageModel updatedImage) async {
+    // 更新父组件的状态
+    if (_showDuplicates) {
+      // 在分组模式下更新
+      if (mounted) {
+        setState(() {
+          // 遍历所有分组
+          _groupedImages.forEach((groupIndex, imagesInGroup) {
+            // 在当前分组中查找匹配的图片
+            final index = imagesInGroup.indexWhere(
+              (img) => img.imageID == updatedImage.imageID,
+            );
+
+            // 如果找到匹配的图片，更新它
+            if (index != -1) {
+              imagesInGroup[index] = updatedImage;
+
+              // 重要：更新Map中的分组引用
+              _groupedImages[groupIndex] = imagesInGroup;
+            }
+          });
+        });
+      }
+    } else {
+      // 在普通列表模式下更新
+      if (mounted) {
+        setState(() {
+          final index = _allImages.indexWhere(
+            (img) => img.imageID == updatedImage.imageID,
+          );
+          if (index != -1) {
+            _allImages[index] = updatedImage;
+          } else {
+            _allImages.add(updatedImage); // 如果不存在则添加
+          }
+        });
+      }
+    }
   }
 }

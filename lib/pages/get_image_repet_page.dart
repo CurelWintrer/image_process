@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_process/model/image_state.dart';
 import 'package:image_process/widget/image_detail.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_process/model/image_model.dart';
@@ -803,70 +804,21 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
   }
 
   /// 构建单张图片项
-  // Widget _buildImageItem(ImageModel image) {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       border: Border.all(color: Colors.grey[300]!),
-  //       borderRadius: BorderRadius.circular(4),
-  //     ),
-  //     child: Stack(
-  //       fit: StackFit.expand,
-  //       children: [
-  //         // 图片缩略图
-  //         Image.network(
-  //           '$_baseUrl/img/${image.imgPath}',
-  //           fit: BoxFit.cover,
-  //           loadingBuilder: (context, child, loadingProgress) {
-  //             if (loadingProgress == null) return child;
-  //             return const Center(child: CircularProgressIndicator());
-  //           },
-  //           errorBuilder: (context, error, stackTrace) {
-  //             return const Center(
-  //               child: Icon(Icons.broken_image, color: Colors.grey),
-  //             );
-  //           },
-  //         ),
-
-  //         // 图片信息
-  //         Positioned(
-  //           left: 0,
-  //           right: 0,
-  //           bottom: 0,
-  //           child: Container(
-  //             padding: const EdgeInsets.all(4),
-  //             color: Colors.black54,
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   image.imgName,
-  //                   maxLines: 1,
-  //                   overflow: TextOverflow.ellipsis,
-  //                   style: const TextStyle(color: Colors.white, fontSize: 12),
-  //                 ),
-  //                 Text(
-  //                   image.chinaElementName,
-  //                   maxLines: 1,
-  //                   overflow: TextOverflow.ellipsis,
-  //                   style: const TextStyle(color: Colors.white, fontSize: 10),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-  // ... 前面代码保持不变 ...
-
-/// 构建单张图片项
+  /// 构建单张图片项
 Widget _buildImageItem(ImageModel image) {
-  return InkWell( // 添加可点击效果
-    onTap: () => _showImageDetail(image), // 点击时打开详情
+  // 判断图片是否废弃
+  final isAbandoned = image.state == ImageState.Abandoned;
+  
+  return InkWell(
+    onTap: () => _showImageDetail(image),
     child: Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        // 根据状态设置边框颜色：废弃状态用红色，其他用灰色
+        border: Border.all(
+          color: isAbandoned ? Colors.red : Colors.grey[300]!,
+          // 废弃状态下边框更宽更显眼
+          width: isAbandoned ? 2.5 : 1.0, 
+        ),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Stack(
@@ -887,6 +839,27 @@ Widget _buildImageItem(ImageModel image) {
             },
           ),
 
+          // 如果图片已废弃，显示废弃标识
+          if (isAbandoned)
+            Container(
+              color: Colors.red.withOpacity(0.4), // 半透明红色背景
+              alignment: Alignment.center,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.block, size: 40, color: Colors.white), // 废弃图标
+                  SizedBox(height: 8),
+                  Text('废弃', 
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold
+                    )
+                  ),
+                ],
+              ),
+            ),
+
           // 图片信息
           Positioned(
             left: 0,
@@ -894,18 +867,25 @@ Widget _buildImageItem(ImageModel image) {
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.all(4),
-              color: Colors.black54,
+              color: isAbandoned 
+                ? Colors.red.withOpacity(0.8) // 废弃状态用红色背景
+                : Colors.black54,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    image.imgName,
+                    image.chinaElementName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      // 废弃状态文字加粗
+                      fontWeight: isAbandoned ? FontWeight.bold : FontWeight.normal
+                    ),
                   ),
                   Text(
-                    image.chinaElementName,
+                    image.imageID.toString(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 10),
@@ -920,8 +900,8 @@ Widget _buildImageItem(ImageModel image) {
   );
 }
 
-/// 显示图片详情弹窗
-void _showImageDetail(ImageModel image) {
+  /// 显示图片详情弹窗
+  void _showImageDetail(ImageModel image) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -966,8 +946,6 @@ void _showImageDetail(ImageModel image) {
     );
   }
 
-// ... 后面代码保持不变 ...
-
   /// 显示消息提示
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -975,19 +953,45 @@ void _showImageDetail(ImageModel image) {
     );
   }
 
-    Future<void> handleImageUpdated(ImageModel uploadImage) async {
-    // 更新父组件的状态
+  //状态更新
+  // 状态更新
+Future<void> handleImageUpdated(ImageModel updatedImage) async {
+  // 更新父组件的状态
+  if (_showDuplicates) {
+    // 在分组模式下更新
     if (mounted) {
       setState(() {
-        // final index = _images.indexWhere(
-        //   (img) => img.imageID == uploadImage.imageID,
-        // );
-        // if (index != -1) {
-        //   _images[index] = uploadImage;
-        // } else {
-        //   _images.add(uploadImage); // 如果不存在则添加
-        // }
+        // 遍历所有分组
+        _groupedImages.forEach((groupIndex, imagesInGroup) {
+          // 在当前分组中查找匹配的图片
+          final index = imagesInGroup.indexWhere(
+            (img) => img.imageID == updatedImage.imageID,
+          );
+          
+          // 如果找到匹配的图片，更新它
+          if (index != -1) {
+            imagesInGroup[index] = updatedImage;
+            
+            // 重要：更新Map中的分组引用
+            _groupedImages[groupIndex] = imagesInGroup;
+          }
+        });
+      });
+    }
+  } else {
+    // 在普通列表模式下更新
+    if (mounted) {
+      setState(() {
+        final index = _allImages.indexWhere(
+          (img) => img.imageID == updatedImage.imageID,
+        );
+        if (index != -1) {
+          _allImages[index] = updatedImage;
+        } else {
+          _allImages.add(updatedImage); // 如果不存在则添加
+        }
       });
     }
   }
+}
 }

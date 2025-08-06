@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_process/model/image_state.dart';
 import 'package:image_process/user_session.dart';
 
 class ReviewPage extends StatefulWidget {
@@ -137,7 +138,7 @@ class ReviewPageState extends State<ReviewPage> {
         _buildStatCard('总数', total.toString()),
         ...stateCounts.entries
             .map(
-              (e) => _buildStatCard(_getStateName(e.key), e.value.toString()),
+              (e) => _buildStatCard(ImageState.getStateText(int.parse(e.key)), e.value.toString()),
             )
             .toList(),
       ],
@@ -226,6 +227,20 @@ class ReviewPageState extends State<ReviewPage> {
     final secondLevel = titleStats['Second'] as Map<String, dynamic>?;
     if (secondLevel != null && secondLevel.containsKey(title)) {
       return secondLevel[title];
+    }
+
+    final thirdLevel = titleStats['Third'] as Map<String, dynamic>?;
+    if (thirdLevel != null && thirdLevel.containsKey(title)) {
+      return thirdLevel[title];
+    }
+
+    final fourthLevel = titleStats['Fourth'] as Map<String, dynamic>?;
+    if (fourthLevel != null && fourthLevel.containsKey(title)) {
+      return fourthLevel[title];
+    }
+    final fifthLevel = titleStats['Fifth'] as Map<String, dynamic>?;
+    if (fifthLevel != null && fifthLevel.containsKey(title)) {
+      return fifthLevel[title];
     }
 
     return null;

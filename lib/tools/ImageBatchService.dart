@@ -33,7 +33,10 @@ class ImageBatchService {
   static Future<void> downloadImages({
     required BuildContext context,
     required List<ImageModel> selectedImages,
+    String? path,
   }) async {
+
+    
     if (selectedImages.isEmpty) {
       _showSnackBar(context, '请先选择要下载的图片');
       return;
@@ -58,12 +61,16 @@ class ImageBatchService {
   static Future<void> _downloadForWindows({
     required BuildContext context,
     required List<ImageModel> selectedImages,
+    String? selectedPath,
   }) async {
     // Windows环境具体实现...
     // 实现代码结构与原_downloadImagesForWindows相同
     // 需要将原方法中的state更新改为通过回调处理
-    final selectedDirectory = await FilePicker.platform.getDirectoryPath();
-
+    
+    var selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if(selectedPath!=null){
+      selectedDirectory=selectedPath;
+    }
     if (selectedDirectory == null) {
       _showSnackBar(context,'已取消选择文件夹');
       return;
@@ -249,7 +256,7 @@ class ImageBatchService {
                   onPressed: () {
                     Navigator.pop(context);
                     Process.run('explorer', [
-                      selectedDirectory.replaceAll('/', '\\'),
+                      selectedDirectory!.replaceAll('/', '\\'),
                     ]);
                   },
                   child: Text('打开文件夹'),

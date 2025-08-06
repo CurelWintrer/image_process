@@ -137,12 +137,12 @@ class _SystemSetState extends State<SystemSet> {
                               vertical: 14, horizontal: 16),
                           ),
                           readOnly: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return '请选择结果保存路径';
-                            }
-                            return null;
-                          },
+                          // validator: (value) {
+                          //   // if (value == null || value.isEmpty) {
+                          //   //   return '请选择结果保存路径';
+                          //   // }
+                          //   return null;
+                          // },
                         ),
                       ),
                       const SizedBox(width: 8),

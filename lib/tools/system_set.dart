@@ -302,10 +302,10 @@ class _SystemSetState extends State<SystemSet> {
                                 Icons.download_outlined,
                                 color: Theme.of(context).primaryColor,
                               ),
+                              
                               label: const Text('下载最新安装包'),
                               onPressed: _downloadInstaller,
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
                                 side: BorderSide(
                                   color: Theme.of(context).primaryColor,
                                 ),

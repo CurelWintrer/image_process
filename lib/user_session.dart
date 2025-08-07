@@ -16,6 +16,7 @@ class UserSession {
   String apiUrl = 'https://api.shubiaobiao.com/v1/chat/completions';
   String apiKey = 'sk-D6lEXIuoNQ1aK6OWf0WD5jwKkhabovIyfxkHYVKPRqveGdj4';
   String getRepetPath = '';
+  String version='0.0.1';
 
   /// 保存设置的键值常量
   static const String _baseUrlKey = 'system_baseUrl';

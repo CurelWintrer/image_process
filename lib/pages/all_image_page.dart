@@ -1043,7 +1043,7 @@ class AllImagePageState extends State<AllImagePage> {
             ),
           ),
         ),
-        // 添加选中标记（蓝色圆角标记）
+        // 选中标记（蓝色圆角标记）
         // if (isCurrentSelected) Positioned(
         //   top: 5,
         //   right: 5,

@@ -16,6 +16,7 @@ typedef UploadCallback = void Function(ImageModel uploadImage);
 typedef onAIGenerateCallback = void Function(ImageModel updatedImage);
 typedef onUpdateCaptionCallback = void Function(ImageModel updatedImage);
 typedef onUpdateStateCallback = void Function(ImageModel updatedImage);
+typedef onTitleEditedCallback = void Function(ImageModel updatedImage);
 
 class ImageDetail extends StatefulWidget {
   final ImageModel image;
@@ -26,6 +27,7 @@ class ImageDetail extends StatefulWidget {
   final onAIGenerateCallback? onAIGenerate; // AI生成描述回调
   final onUpdateStateCallback? onUpdateState;
   final onUpdateCaptionCallback? onUpdateCaption;
+  final onTitleEditedCallback? onTitleEdited;
 
   const ImageDetail({
     super.key,
@@ -37,6 +39,7 @@ class ImageDetail extends StatefulWidget {
     this.onAIGenerate,
     this.onUpdateState,
     this.onUpdateCaption,
+    this.onTitleEdited,
   });
 
   @override
@@ -47,6 +50,13 @@ class _ImageDetailState extends State<ImageDetail> {
   late ImageModel currentImage;
   late TextEditingController captionController;
   Size? _imageSize;
+
+  bool _isEditingTitle = false;
+  final TextEditingController _titleController = TextEditingController();
+
+  bool _isLoadingCaption = false;
+
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -122,6 +132,7 @@ class _ImageDetailState extends State<ImageDetail> {
     if (widget.onAIGenerate != null) widget.onAIGenerate!(updatedImage);
     if (widget.onUpdateCaption != null) widget.onUpdateCaption!(updatedImage);
     if (widget.onUpdateState != null) widget.onUpdateState!(updatedImage);
+    if (widget.onTitleEdited != null) widget.onTitleEdited!(updatedImage);
   }
 
   // 图片下载处理
@@ -219,29 +230,41 @@ class _ImageDetailState extends State<ImageDetail> {
 
   // AI生成描述
   Future<void> _generateAICaption() async {
+    // 获取安全上下文和保存组件挂载状态
+    final BuildContext? safeContext = mounted ? context : null;
+
     try {
       // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              const Text('正在更新图片描述...'),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('后台处理'),
-              ),
-            ],
+      setState(() {
+        _isLoadingCaption = true;
+      });
+      if (safeContext != null && mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                const Text('正在更新图片描述...'),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    setState(() {
+                      _isLoadingCaption = false;
+                    });
+                  },
+                  child: const Text('后台处理'),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
+
       try {
         // 1. 下载图片并转换为base64
         final base64Image = await ImageService.downloadImageAndConvertToBase64(
@@ -261,28 +284,79 @@ class _ImageDetailState extends State<ImageDetail> {
           newCaption: newCaption,
           token: UserSession().token,
         );
-        captionController.text = newCaption;
         // 4. 更新本地状态
         final updatedImage = currentImage.copyWith(
           caption: newCaption,
           updated_at: DateTime.now().toIso8601String(),
         );
         _updateState(updatedImage);
-        Navigator.of(context).pop();
+        if (safeContext == null) return;
+
+        if (_isLoadingCaption) {
+          Navigator.of(context).pop();
+        }
         // 显示成功消息
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${currentImage.chinaElementName}描述更新成功!')),
-        );
+        if (safeContext != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${currentImage.chinaElementName}描述更新成功!')),
+          );
+        }
       } catch (e) {
         // 显示错误
+        if (safeContext != null && mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('更新失败: $e')));
+        }
+      }
+    } catch (e) {
+      if (safeContext != null && mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('更新失败: $e')));
+        ).showSnackBar(SnackBar(content: Text('AI更新失败')));
+      }
+    }
+  }
+
+  Future<void> _updateName() async {
+    final newTitle = _titleController.text.trim();
+
+    try {
+      // 调用API更新标题
+      final response = await http.post(
+        Uri.parse(
+          '${UserSession().baseUrl}/api/image/update-china-element-name',
+        ),
+        headers: {
+          'Authorization': 'Bearer ${UserSession().token}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'imageID': currentImage.imageID,
+          'chinaElementName': newTitle,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isEditingTitle = false;
+          currentImage = currentImage.copyWith(chinaElementName: newTitle);
+        });
+
+        final updatedImage = currentImage.copyWith(chinaElementName: newTitle);
+        _updateState(updatedImage);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新标题成功')));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新标题失败')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('AI更新失败')));
+      ).showSnackBar(SnackBar(content: Text('网络错误：$e')));
     }
   }
 
@@ -399,7 +473,6 @@ class _ImageDetailState extends State<ImageDetail> {
       ),
     );
   }
- 
 
   // 构建操作按钮
   Widget _buildActionButton(
@@ -443,16 +516,49 @@ class _ImageDetailState extends State<ImageDetail> {
           // 标题行
           Row(
             children: [
+              // 标题部分
               Expanded(
-                child: Text(
-                  currentImage.chinaElementName ?? '',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: _isEditingTitle
+                    ? TextField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                        ),
+                        autofocus: true,
+                        maxLines: null, // 允许多行文本
+                        keyboardType: TextInputType.multiline,
+                      )
+                    : Text(
+                        currentImage.chinaElementName ?? '',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
+              //编辑标题按钮
+              _isEditingTitle
+                  ? IconButton(
+                      icon: Icon(Icons.save, size: 24),
+                      onPressed: () {
+                        _updateName();
+                      },
+                    )
+                  : IconButton(
+                      icon: Icon(Icons.edit, size: 24),
+                      onPressed: () {
+                        setState(() {
+                          _isEditingTitle = true;
+                          _titleController.text =
+                              currentImage.chinaElementName ?? '';
+                        });
+                      },
+                    ),
               // 显示图片分辨率
               // 在标题行分辨率显示部分
               if (_imageSize != null)
@@ -469,6 +575,7 @@ class _ImageDetailState extends State<ImageDetail> {
                     ),
                   ),
                 ),
+
               if (widget.onClose != null)
                 IconButton(
                   icon: const Icon(Icons.close, size: 24),

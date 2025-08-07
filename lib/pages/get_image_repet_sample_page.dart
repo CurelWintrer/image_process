@@ -311,7 +311,7 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   Future<void> _findSimilarImages() async {
     setState(() {
       _images.clear();
-    _groupedImages.clear();
+      _groupedImages.clear();
     });
 
     if (_images.isEmpty) {
@@ -382,58 +382,101 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   }
 
   // 使用均值哈希算法计算图像哈希
+  // 修改后的感知哈希计算方法
+  // 修改后的感知哈希计算方法
   Future<int> _computeImageHash(String imageUrl) async {
-    // 加载图像
-    final response = await http.get(Uri.parse(imageUrl));
-    if (response.statusCode != 200) {
-      throw Exception('Image download failed');
+    try {
+      // 加载图像
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode != 200) throw Exception('图片加载失败');
+
+      // 使用image包解码图像
+      final originalImage = img.decodeImage(response.bodyBytes);
+      if (originalImage == null) throw Exception('图片解码失败');
+
+      // 1. 缩小图像尺寸至32x32（保持宽高比）
+      final resizedImage = img.copyResize(
+        originalImage,
+        width: 32,
+        height: 32,
+        interpolation: img.Interpolation.average,
+      );
+
+      // 2. 转换为灰度图
+      final grayImage = img.grayscale(resizedImage);
+
+      // 3. 获取32x32像素的灰度值
+      final List<double> pixels = [];
+      for (int y = 0; y < 32; y++) {
+        for (int x = 0; x < 32; x++) {
+          final pixel = grayImage.getPixel(x, y);
+          // 使用Luma方法计算灰度值 (YCbCr)
+          final gray = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
+          pixels.add(gray);
+        }
+      }
+
+      // 4. 应用DCT变换
+      final dctMatrix = _applyDCT(pixels);
+
+      // 5. 提取左上角8x8区域的DCT系数
+      final List<double> dctValues = [];
+      for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+          dctValues.add(dctMatrix[y][x]);
+        }
+      }
+
+      // 6. 计算中位值
+      final sortedValues = List<double>.from(dctValues)..sort();
+      final median = sortedValues[32]; // 64个值的中位值
+
+      // 7. 生成感知哈希值
+      int hash = 0;
+      for (int i = 0; i < 64; i++) {
+        if (dctValues[i] > median) {
+          hash |= (1 << i);
+        }
+      }
+
+      return hash;
+    } catch (e) {
+      debugPrint('感知哈希计算失败: $e');
+      return 0; // 返回默认哈希值
     }
+  }
 
-    // 解码图像
-    final bytes = response.bodyBytes;
-    final codec = await instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
+  // 应用二维DCT变换
+  List<List<double>> _applyDCT(List<double> pixels) {
+    const n = 32;
+    final output = List.generate(n, (_) => List<double>.filled(n, 0));
 
-    // 缩小图像以便处理 (8x8)
-    final width = image.width;
-    final height = image.height;
-    final scale = math.min(8 / width, 8 / height);
-    final scaledWidth = (width * scale).round();
-    final scaledHeight = (height * scale).round();
+    for (int u = 0; u < n; u++) {
+      for (int v = 0; v < n; v++) {
+        double sum = 0;
 
-    // 转换为灰度并计算平均值
-    final pixelData = await image.toByteData();
-    final pixels = pixelData!.buffer.asUint8List();
-    double sum = 0;
-    final grayPixels = <double>[];
+        for (int x = 0; x < n; x++) {
+          for (int y = 0; y < n; y++) {
+            final cu = (u == 0) ? 1 / math.sqrt(2) : 1;
+            final cv = (v == 0) ? 1 / math.sqrt(2) : 1;
 
-    for (int y = 0; y < scaledHeight; y++) {
-      for (int x = 0; x < scaledWidth; x++) {
-        final pixelIndex = (y * scaledWidth + x) * 4;
-        final r = pixels[pixelIndex];
-        final g = pixels[pixelIndex + 1];
-        final b = pixels[pixelIndex + 2];
+            final angleX = (2 * x + 1) * u * math.pi / (2 * n);
+            final angleY = (2 * y + 1) * v * math.pi / (2 * n);
 
-        // 转换为灰度 (使用加权平均值)
-        final gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        sum += gray;
-        grayPixels.add(gray);
+            sum +=
+                pixels[y * n + x] *
+                math.cos(angleX) *
+                math.cos(angleY) *
+                cu *
+                cv;
+          }
+        }
+
+        output[u][v] = sum / 4;
       }
     }
 
-    // 计算平均值
-    final avg = sum / grayPixels.length;
-
-    // 生成哈希 (1表示大于平均值，0表示小于)
-    int hash = 0;
-    for (int i = 0; i < grayPixels.length; i++) {
-      if (grayPixels[i] > avg) {
-        hash |= (1 << i); // 设置第i位为1
-      }
-    }
-
-    return hash;
+    return output;
   }
 
   // 分组相似图片

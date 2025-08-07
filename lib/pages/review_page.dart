@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -30,6 +32,8 @@ class ReviewPageState extends State<ReviewPage> {
       final stats = await _fetchStatistics();
       final tree = await _fetchTitleTree();
       setState(() {
+        statisticsData!.clear();
+        titleTreeData!.clear();
         statisticsData = stats;
         titleTreeData = tree;
         isLoading = false;
@@ -107,16 +111,19 @@ class ReviewPageState extends State<ReviewPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
                 '图片总览',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+              SizedBox(width: 700),
               ElevatedButton(
                 onPressed: () => _viewAllImages(),
                 child: Text('查看全部'),
               ),
+              SizedBox(width: 20),
+              IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh))
             ],
           ),
           SizedBox(height: 16),

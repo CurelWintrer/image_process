@@ -440,10 +440,10 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     return hashes;
   }
 
-  // 新增：快速哈希分组方法（用于dHash和aHash）
+  // 快速哈希分组方法（用于dHash和aHash）
   List<List<ImageModel>> _groupByFastHash(
     Map<ImageModel, int> hashes, {
-    int threshold = 5,
+    int threshold = 2,
   }) {
     final groups = <int, List<ImageModel>>{};
 
@@ -518,7 +518,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   }
 
   // 修改后的感知哈希计算方法
-  // 修改后的感知哈希计算方法
   Future<int> _computeImageHash(String imageUrl) async {
     try {
       // 加载图像
@@ -582,7 +581,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   }
 
   // 应用二维DCT变换
-  // 应用二维DCT变换
   List<List<double>> _applyDCT(List<double> pixels) {
     const n = 32;
     final output = List.generate(n, (_) => List<double>.filled(n, 0));
@@ -615,7 +613,7 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     return output;
   }
 
-  // 新增：计算差值哈希（dHash）
+  // 计算差值哈希（dHash）
   Future<int> _computeDHash(String imageUrl) async {
     try {
       final response = await http.get(Uri.parse(imageUrl));
@@ -662,7 +660,7 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     }
   }
 
-  // 新增：计算均值哈希（aHash）
+  // 计算均值哈希（aHash）
   Future<int> _computeAHash(String imageUrl) async {
     try {
       final response = await http.get(Uri.parse(imageUrl));

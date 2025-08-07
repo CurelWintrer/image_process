@@ -43,6 +43,8 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
   Future<void> _fetchAllTasks() async {
     if (token == null || isLoading) return;
 
+    
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -419,11 +421,15 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
                     ],
                   ),
                 ),
+                SizedBox(width: 20,),
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: _showPullTaskDialog,
                   tooltip: '拉取新任务',
                 ),
+                SizedBox(width: 20,),
+                IconButton(onPressed: _fetchAllTasks, icon: const Icon(Icons.refresh),tooltip: '刷新列表',)
+                
               ],
             ),
           ),

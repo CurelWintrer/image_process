@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/login': (context) => LoginPage(),
         '/systemSet': (context) => SystemSet(),
-        '/allImage':(context)=>AllImagePage(),
+        '/allImage': (context) => AllImagePage(),
         '/quality-inspection/detail': (context) {
           final taskId = ModalRoute.of(context)!.settings.arguments as int;
           return QualityInspectionDetailPage(taskId: taskId);

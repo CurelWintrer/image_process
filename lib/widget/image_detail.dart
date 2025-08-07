@@ -268,6 +268,7 @@ class _ImageDetailState extends State<ImageDetail> {
           updated_at: DateTime.now().toIso8601String(),
         );
         _updateState(updatedImage);
+        Navigator.of(context).pop();
         // 显示成功消息
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${currentImage.chinaElementName}描述更新成功!')),
@@ -398,82 +399,7 @@ class _ImageDetailState extends State<ImageDetail> {
       ),
     );
   }
-  // 修改_buildImageWidget方法，获取图片尺寸
-  // Widget _buildImageWidget() {
-  //   final fullImagePath = '${UserSession().baseUrl}/img/${currentImage.imgPath}';
-
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: Colors.grey[100],
-  //       borderRadius: BorderRadius.circular(10),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.1),
-  //           blurRadius: 4,
-  //           offset: const Offset(0, 2),
-  //         ),
-  //       ],
-  //     ),
-  //     child: ClipRRect(
-  //       borderRadius: BorderRadius.circular(10),
-  //       child: InteractiveViewer(
-  //         panEnabled: true,
-  //         scaleEnabled: true,
-  //         minScale: 0.2,
-  //         maxScale: 4.0,
-  //         child: Image.network(
-  //           fullImagePath,
-  //           fit: BoxFit.contain,
-  //           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-  //             if (frame != null) {
-  //               // 获取图片尺寸
-  //               WidgetsBinding.instance.addPostFrameCallback((_) {
-  //                 if (mounted && _imageSize != Size(frame.width.toDouble(), frame.height.toDouble())) {
-  //                   setState(() {
-  //                     _imageSize = Size(frame.width.toDouble(), frame.height.toDouble());
-  //                   });
-  //                 }
-  //               });
-  //             }
-  //             return child;
-  //           },
-  //           loadingBuilder: (context, child, loadingProgress) {
-  //             if (loadingProgress == null) return child;
-  //             return Center(
-  //               child: CircularProgressIndicator(
-  //                 value: loadingProgress.expectedTotalBytes != null
-  //                     ? loadingProgress.cumulativeBytesLoaded /
-  //                         loadingProgress.expectedTotalBytes!
-  //                     : null,
-  //               ),
-  //             );
-  //           },
-  //           errorBuilder: (context, error, stackTrace) {
-  //             return Container(
-  //               color: Colors.grey[200],
-  //               alignment: Alignment.center,
-  //               child: Column(
-  //                 mainAxisAlignment: MainAxisAlignment.center,
-  //                 children: [
-  //                   const Icon(
-  //                     Icons.broken_image,
-  //                     size: 48,
-  //                     color: Colors.grey,
-  //                   ),
-  //                   const SizedBox(height: 10),
-  //                   Text(
-  //                     '加载失败: ${error.toString()}',
-  //                     style: const TextStyle(color: Colors.red),
-  //                   ),
-  //                 ],
-  //               ),
-  //             );
-  //           },
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
+ 
 
   // 构建操作按钮
   Widget _buildActionButton(

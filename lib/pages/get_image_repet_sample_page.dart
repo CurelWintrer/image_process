@@ -309,6 +309,11 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   // 查找相似图片
   // 修改后的查找相似图片方法
   Future<void> _findSimilarImages() async {
+    setState(() {
+      _images.clear();
+    _groupedImages.clear();
+    });
+
     if (_images.isEmpty) {
       // 如果没有图片，先加载所有图片
       await _loadAllImages();
@@ -488,6 +493,7 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
       _isComputing = true;
       _images.clear(); // 清空现有图片
       _currentPage = 0; // 重置页码
+      _groupedImages.clear();
     });
 
     // 显示加载对话框

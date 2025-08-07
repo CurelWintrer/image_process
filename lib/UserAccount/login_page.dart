@@ -367,7 +367,7 @@ class _LoginPageState extends State<LoginPage>
             Positioned(
               top: 20.0,
               right: 20.0,
-              child: IconButton(onPressed: ()=>{UserSession().clear(),_emailController.clear()}, icon: const Icon(Icons.cached))
+              child: IconButton(onPressed: ()=>{UserSession().clear(),_emailController.clear()}, icon: const Icon(Icons.cached),tooltip: '刷新')
             )
           ],
         ),

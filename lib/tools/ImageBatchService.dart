@@ -1,14 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_model.dart';
-import 'package:image_process/tools/GetCaption.dart';
 import 'package:image_process/user_session.dart';
 import 'package:path/path.dart' as path;
 
@@ -16,8 +13,7 @@ import 'package:path/path.dart' as path;
 
 // 服务类封装所有批量操作方法
 class ImageBatchService {
-  static final _token =UserSession().token??'';
-  static final _baseUrl=UserSession().baseUrl??'';
+
 
   // 通用工具方法：显示SnackBar
   static void _showSnackBar(BuildContext context, String message) {
@@ -271,110 +267,5 @@ class ImageBatchService {
       _showSnackBar(context,'批量下载失败: ${e.toString()}');
     }
   }
-
-  // --------------- 批量更新描述核心方法 ---------------
-  static Future<void> batchUpdateCaptions({
-    required BuildContext context,
-    required List<ImageModel> selectedImages,
-    required Function(ImageUpdateResult) onImageUpdated, // 修改回调类型
-  }) async {
-    if (selectedImages.isEmpty) {
-      _showSnackBar(context, '请先选择要更新的图片');
-      return;
-    }
-  }
-
-  static void _isolateCaptionUpdate(Map<String, dynamic> initData) {
-    // 隔离区任务处理代码...
-    final token = initData['token'] as String;
-    final baseUrl = initData['baseUrl'] as String;
-    final mainSendPort = initData['mainSendPort'] as SendPort;
-    final resultSendPort = initData['resultSendPort'] as SendPort;
-
-    // 创建隔离区自己的接收端口
-    final isolatePort = ReceivePort();
-
-    // 发送隔离区的SendPort给主isolate
-    mainSendPort.send(isolatePort.sendPort);
-
-    // 监听来自主isolate的任务
-    isolatePort.listen((message) async {
-      if (message['type'] == 'tasks') {
-        final imagesJson = message['images'] as List<dynamic>;
-        final images = imagesJson
-            .map((json) => ImageModel.fromJson(json))
-            .toList();
-
-        for (var image in images) {
-          try {
-            // 1. 下载图片
-            final imgUrl = '$baseUrl/img/${image.imgPath}';
-            final base64Image =
-                await ImageService.downloadImageAndConvertToBase64(imgUrl);
-
-            // 2. 调用AI更新描述 - 使用ImageService的新方法
-            final aiResponse = await ImageService.getImageCaptionFromAI(
-              base64Image,
-              image,
-            );
-            final newCaption = aiResponse.content;
-
-            // 3. 更新数据库
-            await ImageService.updateImageCaption(
-              imageID: image.imageID,
-              newCaption: newCaption,
-            );
-
-            // 发送成功消息
-            resultSendPort.send({
-              'status': 'success',
-              'imageName': image.imgName,
-              'message': newCaption,
-            });
-          } catch (e) {
-            // 发送错误消息
-            resultSendPort.send({
-              'status': 'error',
-              'imageName': image.imgName,
-              'message': e.toString(),
-            });
-          }
-        }
-      }
-    });
-  }
-
-  // --------------- 批量更新状态核心方法 ---------------
-  static Future<void> batchUpdateStates({
-    required BuildContext context,
-    required String baseUrl,
-    required String token,
-    required List<ImageModel> selectedImages,
-    required int newState,
-    required Function(int, int) onStateUpdated, // 状态更新回调 (imageID, newState)
-  }) async {
-    // 实现代码结构与原_setImagesState相同
-    // 通过onStateUpdated回调通知更新
-  }
 }
 
-
-
-// 更新结果数据模型
-class ImageUpdateResult {
-  final int imageID;
-  final String imgName;
-  final UpdateStatus status;
-  final String error;
-  final String newCaption;
-
-  ImageUpdateResult({
-    required this.imageID,
-    required this.imgName,
-    required this.status,
-    this.error = '',
-    this.newCaption = '',
-  });
-}
-
-enum UpdateStatus { success, failed }

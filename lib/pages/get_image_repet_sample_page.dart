@@ -1,9 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui';
-import 'package:collection/collection.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -500,22 +497,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     return groups.entries.where((entry) => entry.value.length > 1).toList();
   }
 
-  // 计算所有图片的哈希值
-  Future<Map<ImageModel, int>> _computeAllHashes() async {
-    final Map<ImageModel, int> hashes = {};
-
-    for (final image in _images) {
-      try {
-        final hash = await _computeImageHash('$baseUrl/img/${image.imgPath}');
-        hashes[image] = hash;
-      } catch (e) {
-        // 忽略错误图片
-        debugPrint('Image hash computation failed: $e');
-      }
-    }
-
-    return hashes;
-  }
 
   // 修改后的感知哈希计算方法
   Future<int> _computeImageHash(String imageUrl) async {
@@ -708,43 +689,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
       debugPrint('均值哈希计算失败: $e');
       return 0;
     }
-  }
-
-  // 分组相似图片
-  void _groupImagesBySimilarity(Map<ImageModel, int> hashes) {
-    // 用于分组的数据结构
-    final groups = <int, List<ImageModel>>{};
-
-    // 自定义分组逻辑 (汉明距离小于2视为相似)
-    const threshold = 2;
-
-    // 首先按哈希值分组
-    final initialGroups = hashes.entries.groupListsBy((entry) => entry.value);
-
-    // 进一步合并相似组
-    for (final group in initialGroups.values) {
-      if (group.isEmpty) continue;
-
-      bool added = false;
-      for (final key in groups.keys) {
-        if (_hammingDistance(key, group.first.value) <= threshold) {
-          groups[key]!.addAll(group.map((e) => e.key));
-          added = true;
-          break;
-        }
-      }
-
-      if (!added) {
-        groups[group.first.value] = group.map((e) => e.key).toList();
-      }
-    }
-
-    // 过滤掉只有一个图片的分组
-    final validGroups = groups.entries
-        .where((entry) => entry.value.length > 1)
-        .toList();
-
-    setState(() => _groupedImages = validGroups);
   }
 
   // 计算汉明距离

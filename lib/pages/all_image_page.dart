@@ -641,7 +641,7 @@ class AllImagePageState extends State<AllImagePage> {
       await completer.future;
 
       // 8. 清理资源
-      resultsSubscription?.cancel();
+      resultsSubscription.cancel();
       resultsPort.close();
 
       // 9. 关闭所有隔离区

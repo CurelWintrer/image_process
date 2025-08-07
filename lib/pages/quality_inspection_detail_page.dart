@@ -307,7 +307,7 @@ class _QualityInspectionDetailPageState
       // 7. 等待任务完成
       await completer.future;
       // 8. 清理资源
-      resultsSubscription?.cancel();
+      resultsSubscription.cancel();
       resultsPort.close();
       // 9. 关闭所有隔离区
       for (var isolate in isolates) {

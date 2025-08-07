@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_process/model/image_state.dart';
@@ -51,11 +49,6 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
   // 重复图片分组
   Map<int, List<ImageModel>> _groupedImages = {};
   bool _showDuplicates = false;
-
-  // 下载进度
-  double _downloadProgress = 0.0;
-  int _totalDownloadCount = 0;
-  int _currentDownloadCount = 0;
 
   bool _fetchingImages = false; // 添加这个新变量来跟踪图片加载状态
 

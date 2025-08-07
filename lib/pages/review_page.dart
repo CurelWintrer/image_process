@@ -128,6 +128,7 @@ class ReviewPageState extends State<ReviewPage> {
               IconButton(
                 onPressed: _fetchData,
                 icon: const Icon(Icons.refresh),
+                tooltip: '刷新数据',
               ),
             ],
           ),
@@ -182,19 +183,6 @@ class ReviewPageState extends State<ReviewPage> {
     );
   }
 
-  // Widget _buildTitleTree() {
-  //   if (titleTreeData == null || !titleTreeData!['success']) {
-  //     return Center(child: Text('无法加载标题树'));
-  //   }
-
-  //   final treeList = titleTreeData?['titleTree'] as List<dynamic>? ?? [];
-  //   return ListView.builder(
-  //     itemCount: treeList.length,
-  //     itemBuilder: (context, index) {
-  //       return _buildTreeNode(treeList[index]);
-  //     },
-  //   );
-  // }
   Widget _buildTitleTree() {
     if (titleTreeData == null || !titleTreeData!['success']) {
       return Center(child: Text('无法加载标题树'));
@@ -310,34 +298,7 @@ class ReviewPageState extends State<ReviewPage> {
     return colors[level % colors.length];
   }
 
-  Widget _buildTreeNode(dynamic nodeData) {
-    final title = nodeData['title'] as String? ?? '未命名';
-    final children = nodeData['children'] as List<dynamic>? ?? [];
-    final titleStats = _findTitleStatistics(title);
-
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 4),
-      child: ExpansionTile(
-        title: Row(
-          children: [
-            Expanded(child: Text(title)),
-            Chip(
-              label: Text('${titleStats?['total'] ?? 0}'),
-              backgroundColor: Colors.blue[100],
-            ),
-          ],
-        ),
-        children: children
-            .map(
-              (child) => Padding(
-                padding: const EdgeInsets.only(left: 24.0),
-                child: _buildTreeNode(child),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
+  
 
   Map<String, dynamic>? _findTitleStatistics(String title) {
     if (statisticsData == null) return null;
@@ -375,22 +336,6 @@ class ReviewPageState extends State<ReviewPage> {
     return null;
   }
 
-  String _getStateName(String stateCode) {
-    switch (stateCode) {
-      case '0':
-        return '未检查';
-      case '1':
-        return '检查中';
-      case '3':
-        return '审核中';
-      case '4':
-        return '已通过';
-      case '5':
-        return '已废弃';
-      default:
-        return '未知';
-    }
-  }
 
   void _viewAllImages() {
     Navigator.pushNamed(context, '/allImage');

@@ -498,7 +498,7 @@ class _QualityInspectionDetailPageState
                                             },
                                       ),
                                 title: Text(
-                                  image.chinaElementName,
+                                  image.chinaElementName??'',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -641,7 +641,7 @@ class _QualityInspectionDetailPageState
                           ),
                           color: Colors.black54,
                           child: Text(
-                            image.chinaElementName.split('/').last,
+                            image.chinaElementName!.split('/').last,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

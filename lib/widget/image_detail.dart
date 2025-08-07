@@ -58,7 +58,7 @@ class _ImageDetailState extends State<ImageDetail> {
     super.didUpdateWidget(oldWidget);
     if (widget.image != oldWidget.image) {
       currentImage = widget.image;
-      captionController.text = widget.image.caption;
+      captionController.text = widget.image.caption??'';
     }
   }
 
@@ -86,7 +86,7 @@ class _ImageDetailState extends State<ImageDetail> {
       await DownloadHelper.downloadImage(
         context: context,
         imgPath: currentImage.imgPath,
-        imgName: currentImage.imgName,
+        imgName: currentImage.imgName??'',
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -399,7 +399,7 @@ class _ImageDetailState extends State<ImageDetail> {
             children: [
               Expanded(
                 child: Text(
-                  currentImage.chinaElementName,
+                  currentImage.chinaElementName??'',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -518,7 +518,7 @@ class _ImageDetailState extends State<ImageDetail> {
           ),
           const SizedBox(height: 8),
           _buildInfoItem('ID', currentImage.imageID.toString()),
-          _buildInfoItem('名称', currentImage.imgName),
+          _buildInfoItem('名称', currentImage.imgName??''),
           _buildInfoItem('路径', currentImage.imgPath),
           _buildInfoItem('MD5', currentImage.md5),
           _buildInfoItem('创建时间', currentImage.created_at),

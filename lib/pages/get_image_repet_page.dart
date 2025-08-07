@@ -399,7 +399,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
         final imageMap = <String, ImageModel>{};
         for (final item in images) {
           final image = ImageModel.fromJson(item);
-          imageMap[image.imgName] = image;
+          imageMap[image.imgName??''] = image;
         }
 
         // 分组图片
@@ -776,7 +776,7 @@ class _GeImageRepetPageState extends State<GetImageRepetPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      image.chinaElementName,
+                      image.chinaElementName??'',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

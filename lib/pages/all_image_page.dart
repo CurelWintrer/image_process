@@ -94,6 +94,8 @@ class AllImagePageState extends State<AllImagePage> {
         headers: {'Authorization': 'Bearer $authToken'},
       );
 
+      print(response.body);
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final newImages = List<ImageModel>.from(
@@ -1018,7 +1020,7 @@ class AllImagePageState extends State<AllImagePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        image.chinaElementName,
+                        image.chinaElementName??'',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontWeight: FontWeight.bold),

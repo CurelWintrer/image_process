@@ -6,10 +6,10 @@ class ImageModel {
   final String? Third;
   final String? Fourth;
   final String? Fifth;
-  final String imgName;
+  final String? imgName;
   late final String imgPath;
-  final String chinaElementName;
-  String caption;
+  final String? chinaElementName;
+  String? caption;
   final int? state;
   final int? imageListID;
   final String created_at;

@@ -42,7 +42,7 @@ class ImageService {
   }
 
   static String? getPomat(ImageModel image) {
-    List<String> result = getTwoPart(image.chinaElementName);
+    List<String> result = getTwoPart(image.chinaElementName??'');
     switch (image.Second) {
       case '诗词' || '古典文学':
         return '开篇句式（任选）：1、这是${result[0]}《${result[1]}》的部分书法作品图片。2、图中展示的是${result[0]}《${result[1]}》中描绘的某一场景。3、图像还原了《${result[1]}》中典型意境的表现。';
@@ -64,7 +64,7 @@ class ImageService {
     ImageModel image,
   ) async {
     String? text = getPomat(image);
-    List<String> result = getTwoPart(image.chinaElementName);
+    List<String> result = getTwoPart(image.chinaElementName??'');
     print(text);
 
     final response = await http.post(

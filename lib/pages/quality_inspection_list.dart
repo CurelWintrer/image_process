@@ -641,6 +641,14 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
                                           style: TextStyle(fontSize: 14),
                                         ),
                                       ),
+                                      const SizedBox(width: 8),
+                                      TextButton(
+                                        onPressed: ()=>_confirmAbandonTask(task['checkImageListID']), 
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                        ),
+                                        child: const Text('放弃',style: TextStyle(fontSize: 14),),
+                                      )
                                     ],
                                   ],
                                 ),
@@ -658,6 +666,74 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
         ],
       ),
     );
+  }
+
+   void _confirmAbandonTask(int taskId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认放弃任务'),
+        content: const Text('确定要放弃此任务吗？放弃后任务将重新进入待分配状态。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // 关闭对话框
+              _abandonTask(taskId); // 调用放弃任务方法
+            },
+            child: const Text('确定', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 添加放弃任务的方法
+  Future<void> _abandonTask(int taskId) async {
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未登录或登录已过期')));
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${UserSession().baseUrl}/api/check-tasks/$taskId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('任务 $taskId 已放弃')));
+        // 刷新任务列表
+        await _fetchAllTasks();
+      } else {
+        String errorMessage = '放弃任务失败';
+        if (response.statusCode == 401) {
+          errorMessage = '未授权或token无效';
+        } else if (response.statusCode == 404) {
+          errorMessage = '任务不存在或不属于当前用户';
+        } else {
+          errorMessage = '服务器错误: ${response.statusCode}';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('网络错误: $e')));
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Widget _buildPaginationControls() {

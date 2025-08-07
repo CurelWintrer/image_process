@@ -15,6 +15,7 @@ class UserSession {
   String baseUrl = 'http://10.1.5.103:3000';
   String apiUrl = 'https://api.shubiaobiao.com/v1/chat/completions';
   String apiKey = 'sk-D6lEXIuoNQ1aK6OWf0WD5jwKkhabovIyfxkHYVKPRqveGdj4';
+  String modelName='gemini-2.5-pro';
   String getRepetPath = '';
   String version='0.0.1';
 
@@ -22,7 +23,8 @@ class UserSession {
   static const String _baseUrlKey = 'system_baseUrl';
   static const String _apiUrlKey = 'system_apiUrl';
   static const String _apiKeyKey = 'system_apiKey';
-  static const String _getRepetPath = '';
+  static const String _getRepetPath = 'systemRepetPath';
+  static const String _modelName='system_modelName';
 
   bool get isLoggedIn => token != null;
 
@@ -42,6 +44,7 @@ class UserSession {
     apiUrl = prefs.getString(_apiUrlKey) ?? apiUrl;
     apiKey = prefs.getString(_apiKeyKey) ?? apiKey;
     getRepetPath = prefs.getString(_getRepetPath) ?? getRepetPath;
+    modelName=prefs.getString(_modelName) ?? modelName;
   }
 
   /// 新增：专用方法保存系统设置
@@ -50,6 +53,7 @@ class UserSession {
     required String newApiUrl,
     required String newApiKey,
     required String newGetRepetPath,
+    required String newModelName,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -57,11 +61,13 @@ class UserSession {
     await prefs.setString(_apiUrlKey, newApiUrl);
     await prefs.setString(_apiKeyKey, newApiKey);
     await prefs.setString(_getRepetPath, newGetRepetPath);
+    await prefs.setString(_modelName, newModelName);
 
     baseUrl = newBaseUrl;
     apiUrl = newApiUrl;
     apiKey = newApiKey;
     getRepetPath=newGetRepetPath;
+    modelName=newModelName;
     UserSession().loadFromPrefs();
   }
 

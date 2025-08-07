@@ -17,6 +17,7 @@ class _SystemSetState extends State<SystemSet> {
   late TextEditingController _apiUrlController;
   late TextEditingController _apiKeyController;
   late TextEditingController _folderPathController;
+  late TextEditingController _modelname;
 
   // 下载相关状态
   double _downloadProgress = 0.0;
@@ -31,6 +32,7 @@ class _SystemSetState extends State<SystemSet> {
     _apiUrlController = TextEditingController(text: session.apiUrl);
     _apiKeyController = TextEditingController(text: session.apiKey);
     _folderPathController = TextEditingController(text: session.getRepetPath);
+    _modelname=TextEditingController(text: session.modelName);
   }
 
   @override
@@ -39,6 +41,7 @@ class _SystemSetState extends State<SystemSet> {
     _apiUrlController.dispose();
     _apiKeyController.dispose();
     _folderPathController.dispose();
+    _modelname.dispose();
     super.dispose();
   }
 
@@ -67,6 +70,7 @@ class _SystemSetState extends State<SystemSet> {
           newApiUrl: _apiUrlController.text,
           newApiKey: _apiKeyController.text,
           newGetRepetPath: _folderPathController.text,
+          newModelName: _modelname.text,
         );
         await UserSession().loadFromPrefs();
 
@@ -185,6 +189,13 @@ class _SystemSetState extends State<SystemSet> {
                             hint: 'sk-xxxxxxxxxxxxxxxx',
                             icon: Icons.vpn_key,
                             obscureText: true,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _modelname,
+                            label: '模型名称',
+                            hint: 'gemini-2.5-pro',
+                            icon: Icons.model_training,
                           ),
                         ],
                       ),

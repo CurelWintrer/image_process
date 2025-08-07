@@ -74,7 +74,7 @@ class ImageService {
         'Authorization': 'Bearer $apiKey',
       },
       body: jsonEncode({
-        "model": "gemini-2.5-pro",
+        "model": "${UserSession().modelName}",
         "messages": [
           {
             "role": "user",

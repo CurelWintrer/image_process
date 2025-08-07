@@ -32,17 +32,23 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    ThemeMode _themeMode=ThemeMode.system;
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 56, 160, 230),
-        ),
-        fontFamily: 'YeHei',
-      ),
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
+      themeMode: _themeMode,
+      // theme: ThemeData(
+      //   colorScheme: ColorScheme.fromSeed(
+      //     seedColor: const Color.fromARGB(255, 56, 160, 230),
+      //   ),
+      //   fontFamily: 'YeHei',
+      // ),
       home: isLogin() ? const HomePage() : const LoginPage(),
       routes: {
         '/home': (context) => const HomePage(),

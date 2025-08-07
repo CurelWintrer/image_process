@@ -306,7 +306,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     }).toList();
   }
 
-  // 查找相似图片
   // 修改后的查找相似图片方法
   Future<void> _findSimilarImages() async {
     setState(() {
@@ -352,16 +351,153 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
 
     try {
       setState(() => _isComputing = true);
-      // 计算所有图片的哈希值
-      final hashResults = await _computeAllHashes();
-      // 分组相似图片
-      _groupImagesBySimilarity(hashResults);
+
+      // 第一步：使用差值哈希快速过滤
+      final dHashResults = await _computeAllDHashes();
+      final dHashGroups = _groupByFastHash(dHashResults, threshold: 5);
+
+      // 第二步：在差值哈希分组内使用均值哈希过滤
+      final aHashGroups = <List<ImageModel>>[];
+      for (final group in dHashGroups) {
+        final aHashResults = await _computeAHashesForImages(group);
+        final aHashSubGroups = _groupByFastHash(aHashResults, threshold: 5);
+        aHashGroups.addAll(aHashSubGroups);
+      }
+
+      // 第三步：在均值哈希分组内使用感知哈希精确匹配
+      final pHashGroups = <MapEntry<int, List<ImageModel>>>[];
+      for (final group in aHashGroups) {
+        if (group.length > 1) {
+          // 只有多张图片才需要进一步处理
+          final pHashResults = await _computePHashesForImages(group);
+          final pHashSubGroups = _groupByPerceptualHash(
+            pHashResults,
+            threshold: 3,
+          );
+          pHashGroups.addAll(pHashSubGroups);
+        }
+      }
+
+      // 合并最终分组
+      setState(() => _groupedImages = pHashGroups);
     } finally {
       if (mounted) {
         Navigator.pop(context); // 关闭对话框
         setState(() => _isComputing = false);
       }
     }
+  }
+
+  // 新增：计算所有图片的差值哈希
+  Future<Map<ImageModel, int>> _computeAllDHashes() async {
+    final Map<ImageModel, int> hashes = {};
+
+    for (final image in _images) {
+      try {
+        final hash = await _computeDHash('$baseUrl/img/${image.imgPath}');
+        hashes[image] = hash;
+      } catch (e) {
+        debugPrint('差值哈希计算失败: $e');
+      }
+    }
+
+    return hashes;
+  }
+
+  // 新增：计算指定图片的均值哈希
+  Future<Map<ImageModel, int>> _computeAHashesForImages(
+    List<ImageModel> images,
+  ) async {
+    final Map<ImageModel, int> hashes = {};
+
+    for (final image in images) {
+      try {
+        final hash = await _computeAHash('$baseUrl/img/${image.imgPath}');
+        hashes[image] = hash;
+      } catch (e) {
+        debugPrint('均值哈希计算失败: $e');
+      }
+    }
+
+    return hashes;
+  }
+
+  // 新增：计算指定图片的感知哈希
+  Future<Map<ImageModel, int>> _computePHashesForImages(
+    List<ImageModel> images,
+  ) async {
+    final Map<ImageModel, int> hashes = {};
+
+    for (final image in images) {
+      try {
+        final hash = await _computeImageHash('$baseUrl/img/${image.imgPath}');
+        hashes[image] = hash;
+      } catch (e) {
+        debugPrint('感知哈希计算失败: $e');
+      }
+    }
+
+    return hashes;
+  }
+
+  // 新增：快速哈希分组方法（用于dHash和aHash）
+  List<List<ImageModel>> _groupByFastHash(
+    Map<ImageModel, int> hashes, {
+    int threshold = 5,
+  }) {
+    final groups = <int, List<ImageModel>>{};
+
+    // 按哈希值分组
+    for (final entry in hashes.entries) {
+      final image = entry.key;
+      final hash = entry.value;
+
+      bool added = false;
+      for (final key in groups.keys) {
+        if (_hammingDistance(key, hash) <= threshold) {
+          groups[key]!.add(image);
+          added = true;
+          break;
+        }
+      }
+
+      if (!added) {
+        groups[hash] = [image];
+      }
+    }
+
+    // 返回所有分组（包括单张图片的分组）
+    return groups.values.toList();
+  }
+
+  // 新增：感知哈希分组方法
+  List<MapEntry<int, List<ImageModel>>> _groupByPerceptualHash(
+    Map<ImageModel, int> hashes, {
+    int threshold = 3,
+  }) {
+    final groups = <int, List<ImageModel>>{};
+
+    // 按哈希值分组
+    for (final entry in hashes.entries) {
+      final image = entry.key;
+      final hash = entry.value;
+
+      bool added = false;
+      for (final key in groups.keys) {
+        if (_hammingDistance(key, hash) <= threshold) {
+          groups[key]!.add(image);
+          added = true;
+          break;
+        }
+      }
+
+      if (!added) {
+        groups[hash] = [image];
+      }
+    }
+
+    // 过滤掉只有一个图片的分组
+    return groups.entries.where((entry) => entry.value.length > 1).toList();
   }
 
   // 计算所有图片的哈希值
@@ -381,7 +517,6 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     return hashes;
   }
 
-  // 使用均值哈希算法计算图像哈希
   // 修改后的感知哈希计算方法
   // 修改后的感知哈希计算方法
   Future<int> _computeImageHash(String imageUrl) async {
@@ -447,6 +582,7 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
   }
 
   // 应用二维DCT变换
+  // 应用二维DCT变换
   List<List<double>> _applyDCT(List<double> pixels) {
     const n = 32;
     final output = List.generate(n, (_) => List<double>.filled(n, 0));
@@ -477,6 +613,103 @@ class GetImageRepetSamplePageState extends State<GetImageRepetSamplePage> {
     }
 
     return output;
+  }
+
+  // 新增：计算差值哈希（dHash）
+  Future<int> _computeDHash(String imageUrl) async {
+    try {
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode != 200) throw Exception('图片加载失败');
+
+      final originalImage = img.decodeImage(response.bodyBytes);
+      if (originalImage == null) throw Exception('图片解码失败');
+
+      // 1. 缩小图像至9x8（宽9高8）
+      final resizedImage = img.copyResize(
+        originalImage,
+        width: 9,
+        height: 8,
+        interpolation: img.Interpolation.average,
+      );
+
+      // 2. 转换为灰度图
+      final grayImage = img.grayscale(resizedImage);
+
+      // 3. 计算每行相邻像素的差值
+      int hash = 0;
+      for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+          final leftPixel = grayImage.getPixel(x, y);
+          final rightPixel = grayImage.getPixel(x + 1, y);
+
+          final leftGray =
+              0.299 * leftPixel.r + 0.587 * leftPixel.g + 0.114 * leftPixel.b;
+          final rightGray =
+              0.299 * rightPixel.r +
+              0.587 * rightPixel.g +
+              0.114 * rightPixel.b;
+
+          if (leftGray > rightGray) {
+            hash |= (1 << (y * 8 + x));
+          }
+        }
+      }
+
+      return hash;
+    } catch (e) {
+      debugPrint('差值哈希计算失败: $e');
+      return 0;
+    }
+  }
+
+  // 新增：计算均值哈希（aHash）
+  Future<int> _computeAHash(String imageUrl) async {
+    try {
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode != 200) throw Exception('图片加载失败');
+
+      final originalImage = img.decodeImage(response.bodyBytes);
+      if (originalImage == null) throw Exception('图片解码失败');
+
+      // 1. 缩小图像至8x8
+      final resizedImage = img.copyResize(
+        originalImage,
+        width: 8,
+        height: 8,
+        interpolation: img.Interpolation.average,
+      );
+
+      // 2. 转换为灰度图
+      final grayImage = img.grayscale(resizedImage);
+
+      // 3. 计算平均灰度值
+      double sum = 0;
+      final List<double> grays = [];
+
+      for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+          final pixel = grayImage.getPixel(x, y);
+          final gray = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
+          sum += gray;
+          grays.add(gray);
+        }
+      }
+
+      final avg = sum / 64;
+
+      // 4. 生成哈希值
+      int hash = 0;
+      for (int i = 0; i < 64; i++) {
+        if (grays[i] > avg) {
+          hash |= (1 << i);
+        }
+      }
+
+      return hash;
+    } catch (e) {
+      debugPrint('均值哈希计算失败: $e');
+      return 0;
+    }
   }
 
   // 分组相似图片

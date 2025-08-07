@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 0, 140, 255),
+          seedColor: const Color.fromARGB(255, 56, 160, 230),
         ),
         fontFamily: 'YeHei',
       ),

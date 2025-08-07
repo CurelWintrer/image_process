@@ -167,130 +167,19 @@ class ReviewPageState extends State<ReviewPage> {
     );
   }
 
-  // Widget _buildTitleTree() {
-  //   if (titleTreeData == null || !titleTreeData!['success']) {
-  //     return Center(child: Text('无法加载标题树'));
-  //   }
+  Widget _buildTitleTree() {
+    if (titleTreeData == null || !titleTreeData!['success']) {
+      return Center(child: Text('无法加载标题树'));
+    }
 
-  //   final treeList = titleTreeData?['titleTree'] as List<dynamic>? ?? [];
-  //   return ListView.builder(
-  //     itemCount: treeList.length,
-  //     itemBuilder: (context, index) {
-  //       return _buildTreeNode(treeList[index]);
-  //     },
-  //   );
-  // }
-    Widget _buildTitleTree() {
-  if (titleTreeData == null || !titleTreeData!['success']) {
-    return Center(child: Text('无法加载标题树'));
-  }
-
-  final treeList = titleTreeData?['titleTree'] as List<dynamic>? ?? [];
-  
-  // 递归构建树形列表
-  Widget _buildTreeNodes(List<dynamic> nodes, int level) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: nodes.map<Widget>((node) {
-        final title = node['title'] as String? ?? '未命名';
-        final children = node['children'] as List<dynamic>? ?? [];
-        final titleStats = _findTitleStatistics(title);
-        final total = titleStats?['total'] ?? 0;
-        
-        // 获取当前层级的颜色
-        final levelColor = _getLevelColor(level);
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 当前节点使用Card以增加视觉分割感
-            Card(
-              color: level == 0 ? Colors.blue[50] : Colors.transparent, // 顶层背景色更突出
-              margin: EdgeInsets.only(left: level * 20.0, top: 8), // 根据层级缩进
-              elevation: level == 0 ? 2 : 0, // 顶层有轻微阴影
-              child: InkWell(
-                onTap: () => {},
-                hoverColor: Colors.blue[100], // 桌面端悬停效果
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      // 层级指示器
-                      Container(
-                        width: 6,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: levelColor,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      // 标题文本
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: level == 0 ? 18 : 16,
-                            fontWeight: level == 0 ? FontWeight.bold : FontWeight.normal,
-                            color: levelColor,
-                          ),
-                        ),
-                      ),
-                      // 数量显示 - 靠近标题
-                      Container(
-                        decoration: BoxDecoration(
-                          color: levelColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text(
-                          '$total',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: levelColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // 子节点
-            if (children.isNotEmpty)
-              Padding(
-                padding: EdgeInsets.only(left: 20.0),
-                child: _buildTreeNodes(children, level + 1),
-              ),
-          ],
-        );
-      }).toList(),
+    final treeList = titleTreeData?['titleTree'] as List<dynamic>? ?? [];
+    return ListView.builder(
+      itemCount: treeList.length,
+      itemBuilder: (context, index) {
+        return _buildTreeNode(treeList[index]);
+      },
     );
   }
-  
-  return ListView(
-    padding: EdgeInsets.all(16),
-    children: [
-      _buildTreeNodes(treeList, 0),
-    ],
-  );
-}
-
-
-    // 根据层级获取不同的颜色
-  Color _getLevelColor(int level) {
-    final colors = [
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-    ];
-    return colors[level % colors.length];
-  }
-
 
   Widget _buildTreeNode(dynamic nodeData) {
     final title = nodeData['title'] as String? ?? '未命名';
@@ -357,22 +246,6 @@ class ReviewPageState extends State<ReviewPage> {
     return null;
   }
 
-  String _getStateName(String stateCode) {
-    switch (stateCode) {
-      case '0':
-        return '未检查';
-      case '1':
-        return '检查中';
-      case '3':
-        return '审核中';
-      case '4':
-        return '已通过';
-      case '5':
-        return '已废弃';
-      default:
-        return '未知';
-    }
-  }
 
   void _viewAllImages() {
     Navigator.pushNamed(context, '/allImage');

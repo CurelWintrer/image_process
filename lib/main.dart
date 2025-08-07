@@ -40,9 +40,10 @@ class MyApp extends StatelessWidget {
     ThemeMode _themeMode=ThemeMode.system;
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData.light(),
+      theme: ThemeData(fontFamily: 'YeHi',colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 56, 160, 230))),
       darkTheme: ThemeData.dark(),
       themeMode: _themeMode,
+      
       // theme: ThemeData(
       //   colorScheme: ColorScheme.fromSeed(
       //     seedColor: const Color.fromARGB(255, 56, 160, 230),

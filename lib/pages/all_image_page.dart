@@ -22,6 +22,9 @@ class AllImagePageState extends State<AllImagePage> {
   final String baseUrl = UserSession().baseUrl;
   late String authToken = UserSession().token ?? '';
 
+  // 添加记录当前选中图片的状态变量
+  ImageModel? _selectedImage; // 当前选中的图片
+
   List<TreeNode> _titleTree = [];
 
   // 当前选择的标题
@@ -41,7 +44,7 @@ class AllImagePageState extends State<AllImagePage> {
   List<ImageModel> _images = [];
   int _currentPage = 1;
   int _totalItems = 0;
-  int _limit = 30;
+  int _limit = 60;
   bool _isImagesLoading = false;
   int _gridColumnCount = 4;
 
@@ -956,20 +959,24 @@ class AllImagePageState extends State<AllImagePage> {
     final imageUrl = '$baseUrl/img/${image.imgPath}';
     final isSelected = _isSelecting && _selectedImages.contains(image);
     final isDiscarded = image.state == ImageState.Abandoned;
+    final isCurrentSelected = !_isSelecting && _selectedImage == image; // 当前选中状态
 
     return Stack(
       children: [
         Card(
-          elevation: isSelected ? 4 : 2,
+          // elevation: isSelected ? 4 : 2,
+          elevation: isCurrentSelected ? 8 : 2, // 增加选中卡片的高度
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: BorderSide(
-              color: isDiscarded
+              color: isCurrentSelected 
+                ? Colors.blueAccent // 高亮蓝色边框
+                : isDiscarded
                   ? Colors.red
                   : isSelected
-                  ? Theme.of(context).primaryColor
-                  : Colors.transparent,
-              width: 2,
+                    ? Theme.of(context).primaryColor
+                    : Colors.transparent,
+              width: isCurrentSelected ? 3 : 2, // 加粗边框
             ),
           ),
           child: InkWell(
@@ -1036,7 +1043,23 @@ class AllImagePageState extends State<AllImagePage> {
             ),
           ),
         ),
-
+        // 添加选中标记（蓝色圆角标记）
+        // if (isCurrentSelected) Positioned(
+        //   top: 5,
+        //   right: 5,
+        //   child: Container(
+        //     padding: EdgeInsets.all(4),
+        //     decoration: BoxDecoration(
+        //       color: Colors.blueAccent,
+        //       shape: BoxShape.circle,
+        //     ),
+        //     child: Icon(
+        //       Icons.check,
+        //       size: 16,
+        //       color: Colors.white,
+        //     ),
+        //   ),
+        // ),
         // 废弃标签
         if (isDiscarded)
           Positioned(
@@ -1096,6 +1119,9 @@ class AllImagePageState extends State<AllImagePage> {
   }
 
   void _showImageDetail(ImageModel image) {
+    setState(() {
+      _selectedImage = image; // 标记选中的图片
+    });
     showDialog(
       context: context,
       barrierDismissible: false,

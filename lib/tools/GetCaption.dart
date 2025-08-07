@@ -45,7 +45,7 @@ class ImageService {
     List<String> result = getTwoPart(image.chinaElementName??'');
     switch (image.Second) {
       case '诗词' || '古典文学':
-        return '开篇句式（任选）：1、这是${result[0]}《${result[1]}》的部分书法作品图片。2、图中展示的是${result[0]}《${result[1]}》中描绘的某一场景。3、图像还原了《${result[1]}》中典型意境的表现。';
+        return '开篇句式（任选）：1、这是${result[0]}${result[1]}的部分书法作品图片。2、图中展示的是${result[0]}${result[1]}中描绘的某一场景。3、图像还原了${result[1]}中典型意境的表现。';
 
       case '成语' || '谚语' || '歇后语':
         return '1、图中展示的是${result[0]}"${result[1]}"的视觉再现。2、这是${result[0]}“${result[1]}”所表达含义的具象画面。3、该图表现了${result[0]}“${result[1]}”的形象意境。';

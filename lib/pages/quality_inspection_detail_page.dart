@@ -545,8 +545,8 @@ class _QualityInspectionDetailPageState
                             key: ValueKey(_selectedImage!.imageID),
                             image: _selectedImage!,
                             onImageUpdated: _updateImage,
-                            onClose: () =>
-                                setState(() => _selectedImage = null),
+                            // onClose: () =>
+                            //     setState(() => _selectedImage = null),
                           ),
                   ),
                 ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -45,12 +46,14 @@ class ImageDetail extends StatefulWidget {
 class _ImageDetailState extends State<ImageDetail> {
   late ImageModel currentImage;
   late TextEditingController captionController;
+  Size? _imageSize;
 
   @override
   void initState() {
     super.initState();
     currentImage = widget.image;
     captionController = TextEditingController(text: widget.image.caption);
+    _getImageSize();
   }
 
   @override
@@ -58,7 +61,9 @@ class _ImageDetailState extends State<ImageDetail> {
     super.didUpdateWidget(oldWidget);
     if (widget.image != oldWidget.image) {
       currentImage = widget.image;
-      captionController.text = widget.image.caption??'';
+      captionController.text = widget.image.caption ?? '';
+
+      _getImageSize();
     }
   }
 
@@ -68,6 +73,45 @@ class _ImageDetailState extends State<ImageDetail> {
     super.dispose();
   }
 
+  // 新增：获取图片尺寸的方法
+  Future<void> _getImageSize() async {
+    try {
+      final imageUrl = '${UserSession().baseUrl}/img/${currentImage.imgPath}';
+      final response = await http.get(Uri.parse(imageUrl));
+      final bytes = response.bodyBytes;
+
+      // 使用 Image.memory 获取尺寸
+      final ImageProvider imageProvider = MemoryImage(bytes);
+      final Completer<Size> completer = Completer();
+
+      imageProvider
+          .resolve(createLocalImageConfiguration(context))
+          .addListener(
+            ImageStreamListener(
+              (ImageInfo info, bool synchronousCall) {
+                if (!completer.isCompleted) {
+                  completer.complete(
+                    Size(
+                      info.image.width.toDouble(),
+                      info.image.height.toDouble(),
+                    ),
+                  );
+                }
+              },
+              onError: (exception, StackTrace? stackTrace) {
+                completer.complete(null);
+              },
+            ),
+          );
+
+      final size = await completer.future;
+      if (size != null && mounted) {
+        setState(() => _imageSize = size);
+      }
+    } catch (e) {
+      print('获取图片尺寸失败: $e');
+    }
+  }
 
   // 统一状态更新方法
   void _updateState(ImageModel updatedImage) {
@@ -86,7 +130,7 @@ class _ImageDetailState extends State<ImageDetail> {
       await DownloadHelper.downloadImage(
         context: context,
         imgPath: currentImage.imgPath,
-        imgName: currentImage.imgName??'',
+        imgName: currentImage.imgName ?? '',
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -290,7 +334,7 @@ class _ImageDetailState extends State<ImageDetail> {
     );
   }
 
-  // 构建图片组件
+  //构建图片组件
   Widget _buildImageWidget() {
     final fullImagePath =
         '${UserSession().baseUrl}/img/${currentImage.imgPath}';
@@ -354,6 +398,82 @@ class _ImageDetailState extends State<ImageDetail> {
       ),
     );
   }
+  // 修改_buildImageWidget方法，获取图片尺寸
+  // Widget _buildImageWidget() {
+  //   final fullImagePath = '${UserSession().baseUrl}/img/${currentImage.imgPath}';
+
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.grey[100],
+  //       borderRadius: BorderRadius.circular(10),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.1),
+  //           blurRadius: 4,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: ClipRRect(
+  //       borderRadius: BorderRadius.circular(10),
+  //       child: InteractiveViewer(
+  //         panEnabled: true,
+  //         scaleEnabled: true,
+  //         minScale: 0.2,
+  //         maxScale: 4.0,
+  //         child: Image.network(
+  //           fullImagePath,
+  //           fit: BoxFit.contain,
+  //           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+  //             if (frame != null) {
+  //               // 获取图片尺寸
+  //               WidgetsBinding.instance.addPostFrameCallback((_) {
+  //                 if (mounted && _imageSize != Size(frame.width.toDouble(), frame.height.toDouble())) {
+  //                   setState(() {
+  //                     _imageSize = Size(frame.width.toDouble(), frame.height.toDouble());
+  //                   });
+  //                 }
+  //               });
+  //             }
+  //             return child;
+  //           },
+  //           loadingBuilder: (context, child, loadingProgress) {
+  //             if (loadingProgress == null) return child;
+  //             return Center(
+  //               child: CircularProgressIndicator(
+  //                 value: loadingProgress.expectedTotalBytes != null
+  //                     ? loadingProgress.cumulativeBytesLoaded /
+  //                         loadingProgress.expectedTotalBytes!
+  //                     : null,
+  //               ),
+  //             );
+  //           },
+  //           errorBuilder: (context, error, stackTrace) {
+  //             return Container(
+  //               color: Colors.grey[200],
+  //               alignment: Alignment.center,
+  //               child: Column(
+  //                 mainAxisAlignment: MainAxisAlignment.center,
+  //                 children: [
+  //                   const Icon(
+  //                     Icons.broken_image,
+  //                     size: 48,
+  //                     color: Colors.grey,
+  //                   ),
+  //                   const SizedBox(height: 10),
+  //                   Text(
+  //                     '加载失败: ${error.toString()}',
+  //                     style: const TextStyle(color: Colors.red),
+  //                   ),
+  //                 ],
+  //               ),
+  //             );
+  //           },
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // 构建操作按钮
   Widget _buildActionButton(
@@ -399,7 +519,7 @@ class _ImageDetailState extends State<ImageDetail> {
             children: [
               Expanded(
                 child: Text(
-                  currentImage.chinaElementName??'',
+                  currentImage.chinaElementName ?? '',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -407,6 +527,22 @@ class _ImageDetailState extends State<ImageDetail> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // 显示图片分辨率
+              // 在标题行分辨率显示部分
+              if (_imageSize != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    '${_imageSize!.width.toInt()}×${_imageSize!.height.toInt()}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      // 当任意一边小于720像素时显示红色，否则显示灰色
+                      color:
+                          (_imageSize!.width < 720 || _imageSize!.height < 720)
+                          ? Colors.red
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ),
               if (widget.onClose != null)
                 IconButton(
                   icon: const Icon(Icons.close, size: 24),
@@ -518,7 +654,7 @@ class _ImageDetailState extends State<ImageDetail> {
           ),
           const SizedBox(height: 8),
           _buildInfoItem('ID', currentImage.imageID.toString()),
-          _buildInfoItem('名称', currentImage.imgName??''),
+          _buildInfoItem('名称', currentImage.imgName ?? ''),
           _buildInfoItem('路径', currentImage.imgPath),
           _buildInfoItem('MD5', currentImage.md5),
           _buildInfoItem('创建时间', currentImage.created_at),

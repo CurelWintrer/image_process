@@ -962,7 +962,7 @@ class AllImagePageState extends State<AllImagePage> {
     final isCurrentSelected =
         !_isSelecting && _selectedImage == image; // 当前选中状态
     final isApproved = image.state == ImageState.Approved;
-
+    final tobeChecked=image.state==ImageState.ToBeChecked;
     return Stack(
       children: [
         Card(
@@ -1064,6 +1064,24 @@ class AllImagePageState extends State<AllImagePage> {
         //   ),
         // ),
         // 废弃标签
+        if (tobeChecked)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '待检查',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+          ),
+
+
         if (isDiscarded)
           Positioned(
             top: 8,

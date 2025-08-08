@@ -109,7 +109,9 @@ class _ImageDetailState extends State<ImageDetail> {
                 }
               },
               onError: (exception, StackTrace? stackTrace) {
-                completer.complete(null);
+                if (!completer.isCompleted) {
+                  completer.complete(Size(0, 0)); // 返回一个默认的 Size 对象
+                }
               },
             ),
           );

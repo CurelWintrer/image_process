@@ -959,7 +959,9 @@ class AllImagePageState extends State<AllImagePage> {
     final imageUrl = '$baseUrl/img/${image.imgPath}';
     final isSelected = _isSelecting && _selectedImages.contains(image);
     final isDiscarded = image.state == ImageState.Abandoned;
-    final isCurrentSelected = !_isSelecting && _selectedImage == image; // 当前选中状态
+    final isCurrentSelected =
+        !_isSelecting && _selectedImage == image; // 当前选中状态
+    final isApproved = image.state == ImageState.Approved;
 
     return Stack(
       children: [
@@ -969,13 +971,14 @@ class AllImagePageState extends State<AllImagePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: BorderSide(
-              color: isCurrentSelected 
-                ? Colors.blueAccent // 高亮蓝色边框
-                : isDiscarded
+              color: isCurrentSelected
+                  ? Colors
+                        .blueAccent // 高亮蓝色边框
+                  : isDiscarded
                   ? Colors.red
                   : isSelected
-                    ? Theme.of(context).primaryColor
-                    : Colors.transparent,
+                  ? Theme.of(context).primaryColor
+                  : Colors.transparent,
               width: isCurrentSelected ? 3 : 2, // 加粗边框
             ),
           ),
@@ -1027,7 +1030,7 @@ class AllImagePageState extends State<AllImagePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        image.chinaElementName??'',
+                        image.chinaElementName ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -1077,7 +1080,22 @@ class AllImagePageState extends State<AllImagePage> {
               ),
             ),
           ),
-
+        if (isApproved)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '通过',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+          ),
         // 选择勾选标记
         if (_isSelecting)
           Positioned(

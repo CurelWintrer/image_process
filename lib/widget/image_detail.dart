@@ -253,16 +253,16 @@ class _ImageDetailState extends State<ImageDetail> {
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
               const Text('正在更新图片描述...'),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  setState(() {
-                    _isLoadingCaption = false;
-                  });
-                },
-                child: const Text('后台处理'),
-              ),
+              // const SizedBox(height: 16),
+              // TextButton(
+              //   onPressed: () {
+              //     Navigator.of(context).pop();
+              //     setState(() {
+              //       _isLoadingCaption = false;
+              //     });
+              //   },
+              //   child: const Text('后台处理'),
+              // ),
             ],
           ),
         ),

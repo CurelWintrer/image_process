@@ -73,24 +73,25 @@ class UserSession {
 
   /// 登录时保存用户信息
   Future<void> saveToPrefs({
-    required String token,
-    required String name,
-    required String email,
-    required int role, // 修改为int类型
-    required int id,
+    required String newToken,
+    required String newName,
+    required String newEmail,
+    required int newRole, // 修改为int类型
+    required int newId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', token);
-    await prefs.setString('name', name);
-    await prefs.setString('email', email);
-    await prefs.setInt('role', role); // 修改为setInt
-    await prefs.setInt('userID', id);
+    await prefs.setString('token', newToken);
+    await prefs.setString('name', newName);
+    await prefs.setString('email', newEmail);
+    await prefs.setInt('role', newRole); // 修改为setInt
+    await prefs.setInt('userID', newId);
 
     // 更新内存中的值
-    token = token;
-    name = name;
-    email = email;
-    role = role;
+    token = newToken;
+    name = newName;
+    email = newEmail;
+    role = newRole;
+    id=newId;
   }
 
   /// 登出时清空所有缓存

@@ -238,32 +238,31 @@ class _ImageDetailState extends State<ImageDetail> {
       setState(() {
         _isLoadingCaption = true;
       });
-      if (safeContext != null && mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                const Text('正在更新图片描述...'),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    setState(() {
-                      _isLoadingCaption = false;
-                    });
-                  },
-                  child: const Text('后台处理'),
-                ),
-              ],
-            ),
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('正在更新图片描述...'),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _isLoadingCaption = false;
+                  });
+                },
+                child: const Text('后台处理'),
+              ),
+            ],
           ),
-        );
-      }
+        ),
+      );
 
       try {
         // 1. 下载图片并转换为base64

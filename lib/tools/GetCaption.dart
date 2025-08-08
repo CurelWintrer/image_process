@@ -111,9 +111,10 @@ class ImageService {
             ],
           },
         ],
-        "max_tokens": 300,
+        "max_tokens": 3000,
       }),
     );
+    print(response.body);
     if (response.statusCode == 200) {
       return AiResponse.fromJson(json.decode(response.body));
     } else {

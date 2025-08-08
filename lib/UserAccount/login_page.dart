@@ -95,11 +95,11 @@ class _LoginPageState extends State<LoginPage>
           return;
         }
         await UserSession().saveToPrefs(
-          token: data['token'],
-          name: data['name'],
-          email: data['email'],
-          role: role,
-          id: data['userID'],
+          newToken: data['token'],
+          newName: data['name'],
+          newEmail: data['email'],
+          newRole: role,
+          newId: data['userID'],
         );
 
         if (!mounted) return;

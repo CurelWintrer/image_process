@@ -58,6 +58,8 @@ class _ImageDetailState extends State<ImageDetail> {
 
   bool _isDownloading = false;
 
+  FocusNode focusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -534,7 +536,8 @@ class _ImageDetailState extends State<ImageDetail> {
                             vertical: 4,
                           ),
                         ),
-                        autofocus: true,
+                        focusNode: focusNode,
+                        // autofocus: true,
                         maxLines: null, // 允许多行文本
                         keyboardType: TextInputType.multiline,
                       )
@@ -727,6 +730,7 @@ class _ImageDetailState extends State<ImageDetail> {
             controller: captionController,
             maxLines: 8,
             minLines: 2,
+            focusNode: focusNode,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               hintText: '输入图片的详细描述...',

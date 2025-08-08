@@ -226,12 +226,14 @@ class AllImagePageState extends State<AllImagePage> {
   List<Widget> _buildAppBarActions() {
     return [
       if (_isSelecting)
-        IconButton(icon: Icon(Icons.cancel), onPressed: _cancelSelection)
+        IconButton(icon: Icon(Icons.cancel), onPressed: _cancelSelection,tooltip: '取消全选')
       else
         IconButton(
           icon: Icon(Icons.select_all),
           onPressed: _startSelectionMode,
+          tooltip: '多选',
         ),
+        SizedBox(width: 30),
     ];
   }
 

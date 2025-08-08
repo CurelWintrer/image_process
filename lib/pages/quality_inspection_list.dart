@@ -610,7 +610,7 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
                                     ),
 
                                     // 质检按钮
-                                    if (task['state'] != 2) ...[
+                                    // if (task['state'] != 2) ...[
                                       const SizedBox(height: 12),
                                       ElevatedButton(
                                         onPressed: () => {
@@ -649,7 +649,7 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
                                         ),
                                         child: const Text('放弃',style: TextStyle(fontSize: 14),),
                                       )
-                                    ],
+                                    // ],
                                   ],
                                 ),
                               ),

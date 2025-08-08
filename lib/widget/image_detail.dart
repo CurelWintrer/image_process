@@ -83,7 +83,7 @@ class _ImageDetailState extends State<ImageDetail> {
     super.dispose();
   }
 
-  // 新增：获取图片尺寸的方法
+  // 获取图片尺寸的方法
   Future<void> _getImageSize() async {
     try {
       final imageUrl = '${UserSession().baseUrl}/img/${currentImage.imgPath}';
@@ -277,6 +277,7 @@ class _ImageDetailState extends State<ImageDetail> {
           currentImage,
         );
         final newCaption = aiResponse.content;
+        
         print(newCaption);
 
         // 3. 更新数据库
@@ -290,6 +291,10 @@ class _ImageDetailState extends State<ImageDetail> {
           caption: newCaption,
           updated_at: DateTime.now().toIso8601String(),
         );
+        setState(() {
+          // currentImage=updatedImage;
+          captionController.text=newCaption;
+        });
         _updateState(updatedImage);
         if (safeContext == null) return;
 

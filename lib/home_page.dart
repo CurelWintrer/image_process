@@ -1,6 +1,7 @@
 // 添加必要的导入
 import 'package:flutter/material.dart';
 import 'package:image_process/navi/app_navigation_drawer.dart';
+import 'package:image_process/pages/collection_page.dart';
 import 'package:image_process/pages/export_image.dart';
 import 'package:image_process/pages/get_image_repet_page.dart';
 import 'package:image_process/pages/get_image_repet_sample_page.dart';
@@ -36,7 +37,8 @@ class _HomePageState extends State<HomePage>
     PageStorageKey('page3'),
     PageStorageKey('page4'),
     PageStorageKey('page5'),
-    PageStorageKey('page6')
+    PageStorageKey('page6'),
+    PageStorageKey('page7')
   ];
 
   // 用户信息
@@ -111,11 +113,12 @@ class _HomePageState extends State<HomePage>
       {'title': '图片查重Pro', 'page': GetImageRepetPage(key: _pageKeys[3])},
       {'title':'图片查重','page':GetImageRepetSamplePage(key: _pageKeys[4],)},
       {'title': '交付导出', 'page': ExportImage(key: _pageKeys[5])},
+      {'title':'采集','page':CollectionPage(key: _pageKeys[6],)}
     ];
 
     // 只有管理员才添加管理页面
     if (isAdmin) {
-      basePages.add({'title': '账号管理', 'page': ManagementPage(key: _pageKeys[6])});
+      basePages.add({'title': '账号管理', 'page': ManagementPage(key: _pageKeys[7])});
     }
 
     // 更新页面和标题列表
@@ -342,6 +345,8 @@ class _HomePageState extends State<HomePage>
       case 5:
         return Icons.download;
       case 6:
+        return Icons.commit;
+      case 7:
         return Icons.admin_panel_settings;
       default:
         return Icons.question_mark;

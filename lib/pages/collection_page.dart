@@ -34,6 +34,7 @@ class _CollectionPageState extends State<CollectionPage> {
 
   // 标题选项
   List<String> _level1Options = [];
+  List<TreeNode> _level1Nodes = [];
   List<TreeNode> _level2Nodes = [];
   List<TreeNode> _level3Nodes = [];
   List<TreeNode> _level4Nodes = [];
@@ -96,8 +97,6 @@ class _CollectionPageState extends State<CollectionPage> {
       ),
     );
   }
-
-
 
   Widget _buildSelectionToolbar() {
     return Container(
@@ -637,12 +636,12 @@ class _CollectionPageState extends State<CollectionPage> {
       setState(() {
         _images.add(newImage);
       });
-
     } catch (e) {
       _showMessage('添加图片出错：${e.toString()}');
     }
   }
 
+  //构建网格试图
   Widget _buildImageGridWithLoader() {
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -1033,6 +1032,8 @@ class _CollectionPageState extends State<CollectionPage> {
         headers: {'Authorization': 'Bearer $authToken'},
       );
 
+      print(response.body);
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -1042,6 +1043,7 @@ class _CollectionPageState extends State<CollectionPage> {
             );
             _level1Options = _titleTree.map((node) => node.title).toList();
             // 初始化为空节点列表
+            _level1Nodes = [];
             _level2Nodes = [];
             _level3Nodes = [];
             _level4Nodes = [];
@@ -1104,8 +1106,8 @@ class _CollectionPageState extends State<CollectionPage> {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
+        spacing: 6,
+        runSpacing: 6,
         children: [
           // 一级标题下拉框
           _buildLevelDropdown(
@@ -1125,6 +1127,7 @@ class _CollectionPageState extends State<CollectionPage> {
           _buildLevelDropdown(
             value: _selectedLevel2,
             options: _level2Nodes.map((node) => node.title).toList(),
+            nodes: _level2Nodes,
             hint: '二级标题',
             enabled: _level2Nodes.isNotEmpty,
             onChanged: _level2Nodes.isNotEmpty
@@ -1142,6 +1145,7 @@ class _CollectionPageState extends State<CollectionPage> {
           _buildLevelDropdown(
             value: _selectedLevel3,
             options: _level3Nodes.map((node) => node.title).toList(),
+            nodes: _level3Nodes,
             hint: '三级标题',
             enabled: _level3Nodes.isNotEmpty,
             onChanged: _level3Nodes.isNotEmpty
@@ -1157,6 +1161,7 @@ class _CollectionPageState extends State<CollectionPage> {
           _buildLevelDropdown(
             value: _selectedLevel4,
             options: _level4Nodes.map((node) => node.title).toList(),
+            nodes: _level4Nodes,
             hint: '四级标题',
             enabled: _level4Nodes.isNotEmpty,
             onChanged: _level4Nodes.isNotEmpty
@@ -1171,6 +1176,7 @@ class _CollectionPageState extends State<CollectionPage> {
           _buildLevelDropdown(
             value: _selectedLevel5,
             options: _level5Nodes.map((node) => node.title).toList(),
+            nodes: _level5Nodes,
             hint: '五级标题',
             enabled: _level5Nodes.isNotEmpty,
             onChanged: _level5Nodes.isNotEmpty
@@ -1191,6 +1197,7 @@ class _CollectionPageState extends State<CollectionPage> {
             },
             child: Text('查询'),
           ),
+          IconButton(onPressed: ()=>{_loadTitleTree()}, icon: Icon(Icons.refresh),tooltip: '刷新标题',)
         ],
       ),
     );
@@ -1199,15 +1206,18 @@ class _CollectionPageState extends State<CollectionPage> {
   Widget _buildLevelDropdown({
     required String? value,
     required List<String> options,
+    List<TreeNode>? nodes,
     required String hint,
     bool enabled = true,
     ValueChanged<String?>? onChanged,
   }) {
     // 确保当前值存在于选项中
     final effectiveValue = options.contains(value) ? value : null;
+
     return Container(
       width: 180,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
             value: effectiveValue,
@@ -1233,11 +1243,168 @@ class _CollectionPageState extends State<CollectionPage> {
             onChanged: onChanged,
             disabledHint: Text('请先选择上级标题'),
           ),
-          SizedBox(height: 10),
-          Text('data'),
+          // 显示备注（如果有的话）
+          Text('${_getRemark(nodes ?? [], value ?? '')}'),
+          if (UserSession().role == 1)
+            IconButton(
+              onPressed: () => {
+                _editRemarkDialog(
+                  context,
+                  _getTitleID(nodes ?? [], value ?? ''),
+                  _getRemark(nodes ?? [], value ?? ''),
+                ),
+              },
+              icon: Icon(Icons.edit),
+            ),
         ],
       ),
     );
+  }
+
+  void _editRemarkDialog(
+    BuildContext context,
+    int titleID,
+    String currentRemark,
+  ) {
+    final TextEditingController remarkController = TextEditingController(
+      text: currentRemark,
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("修改备注"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 输入框
+              TextField(
+                controller: remarkController,
+                maxLines: 8,
+                minLines: 2,
+                decoration: InputDecoration(
+                  labelText: "备注",
+                  border: OutlineInputBorder(),
+                  hintText: "请输入新的备注内容",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // 取消按钮
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // 关闭弹窗
+              },
+              child: Text("取消"),
+            ),
+            // 提交按钮
+            TextButton(
+              onPressed: () async {
+                String newRemark = remarkController.text.trim();
+
+                if (newRemark.isEmpty) {
+                  // 如果备注为空，显示提示
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("备注不能为空！")));
+                  return;
+                }
+
+                // API 请求修改备注
+                bool success = await _updateRemark(titleID, newRemark, context);
+                if (success) {
+                  Navigator.of(context).pop(); // 成功后关闭弹窗
+                }
+              },
+              child: Text("提交"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 修改备注的API请求
+  Future<bool> _updateRemark(
+    int titleID,
+    String remark,
+    BuildContext context,
+  ) async {
+    final String apiUrl =
+        '$baseUrl/api/image/update-title-remark'; // 替换为实际的API地址
+    final String jwtToken = '$authToken'; // 替换为实际的JWT token
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'imageTitleID': titleID, 'remark': remark}),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['affectedRows'] == 1) {
+          // 成功更新备注
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('备注更新成功！')));
+          return true;
+        } else {
+          // 更新失败，显示错误
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('更新失败，请重试！')));
+          return false;
+        }
+      } else {
+        // 根据错误码显示错误信息
+        if (response.statusCode == 400) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('请求参数错误！')));
+        } else if (response.statusCode == 401) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('未授权或Token无效！')));
+        } else if (response.statusCode == 404) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('标题不存在！')));
+        } else {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('服务器错误，请稍后再试！')));
+        }
+        return false;
+      }
+    } catch (e) {
+      // 捕获请求异常
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('请求失败，请检查网络连接！')));
+      return false;
+    }
+  }
+
+  String _getRemark(List<TreeNode> nodes, String title) {
+    final Node = nodes.firstWhere(
+      (node) => node.title == title,
+      orElse: () => TreeNode(id: -1, title: '', children: []),
+    );
+    return Node.remark ?? '';
+  }
+
+  int _getTitleID(List<TreeNode> nodes, String title) {
+    final Node = nodes.firstWhere(
+      (node) => node.title == title,
+      orElse: () => TreeNode(id: -1, title: '', children: []),
+    );
+    return Node.id;
   }
 
   /// 显示消息提示

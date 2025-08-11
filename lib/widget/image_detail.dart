@@ -144,7 +144,7 @@ class _ImageDetailState extends State<ImageDetail> {
     try {
       await DownloadHelper.downloadImage(
         context: context,
-        imgPath: currentImage.imgPath,
+        imgPath: currentImage.imgPath??'',
         imgName: currentImage.imgName ?? '',
       );
     } catch (e) {
@@ -253,16 +253,18 @@ class _ImageDetailState extends State<ImageDetail> {
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
               const Text('正在更新图片描述...'),
-              // const SizedBox(height: 16),
-              // TextButton(
-              //   onPressed: () {
-              //     Navigator.of(context).pop();
-              //     setState(() {
-              //       _isLoadingCaption = false;
-              //     });
-              //   },
-              //   child: const Text('后台处理'),
-              // ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _isLoadingCaption = false;
+                  });
+                  return;
+                },
+                child: const Text('取消'),
+              ),
             ],
           ),
         ),
@@ -690,8 +692,8 @@ class _ImageDetailState extends State<ImageDetail> {
           const SizedBox(height: 8),
           _buildInfoItem('ID', currentImage.imageID.toString()),
           _buildInfoItem('名称', currentImage.imgName ?? ''),
-          _buildInfoItem('路径', currentImage.imgPath),
-          _buildInfoItem('MD5', currentImage.md5),
+          _buildInfoItem('路径', currentImage.imgPath??''),
+          _buildInfoItem('MD5', currentImage.md5??''),
           _buildInfoItem('创建时间', currentImage.created_at),
           _buildInfoItem('更新时间', currentImage.updated_at),
           if (currentImage.imageListID != null)

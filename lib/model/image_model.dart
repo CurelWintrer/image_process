@@ -1,13 +1,13 @@
 class ImageModel {
   final int imageID;
-  final String md5;
+  final String? md5;
   final String? First;
   final String? Second;
   final String? Third;
   final String? Fourth;
   final String? Fifth;
   final String? imgName;
-  late final String imgPath;
+  late final String? imgPath;
   final String? chinaElementName;
   String? caption;
   final int? state;

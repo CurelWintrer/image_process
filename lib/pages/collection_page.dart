@@ -1043,7 +1043,8 @@ class _CollectionPageState extends State<CollectionPage> {
             );
             _level1Options = _titleTree.map((node) => node.title).toList();
             // 初始化为空节点列表
-            _level1Nodes = [];
+
+            _level1Nodes = _titleTree.where((node)=>node.level==1).toList();
             _level2Nodes = [];
             _level3Nodes = [];
             _level4Nodes = [];
@@ -1113,6 +1114,7 @@ class _CollectionPageState extends State<CollectionPage> {
           _buildLevelDropdown(
             value: _selectedLevel1,
             options: _level1Options,
+            nodes: _level1Nodes,
             hint: '一级标题',
             onChanged: (value) {
               setState(() => _selectedLevel1 = value);
@@ -1336,6 +1338,8 @@ class _CollectionPageState extends State<CollectionPage> {
         '$baseUrl/api/image/update-title-remark'; // 替换为实际的API地址
     final String jwtToken = '$authToken'; // 替换为实际的JWT token
 
+    print('titleID:$titleID');
+
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
@@ -1345,6 +1349,8 @@ class _CollectionPageState extends State<CollectionPage> {
         },
         body: json.encode({'imageTitleID': titleID, 'remark': remark}),
       );
+
+      print(response.body);
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);

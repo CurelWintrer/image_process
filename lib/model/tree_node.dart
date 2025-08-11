@@ -3,12 +3,14 @@ class TreeNode {
   final String title;
   final List<TreeNode> children;
   final String? remark;
+  final int? level;
 
   TreeNode({
     required this.id,
     required this.title,
     required this.children,
     this.remark,
+    this.level
   });
 
   factory TreeNode.fromJson(Map<String, dynamic> json) {
@@ -19,6 +21,7 @@ class TreeNode {
         json['children']?.map((x) => TreeNode.fromJson(x)) ?? [],
       ),
       remark: json['remark'],
+      level: json['level'],
     );
   }
 }

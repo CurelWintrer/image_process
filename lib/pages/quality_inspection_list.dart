@@ -42,9 +42,6 @@ class _QualityInspectionListState extends State<QualityInspectionList> {
 
   Future<void> _fetchAllTasks() async {
     if (token == null || isLoading) return;
-
-    
-
     setState(() {
       isLoading = true;
       errorMessage = null;
